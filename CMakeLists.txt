@@ -63,11 +63,22 @@ endif()
 
 add_library(cgraph_gate_fixture_plugin SHARED gate/fixture/src/plugin_register.cpp)
 target_link_libraries(cgraph_gate_fixture_plugin PRIVATE cgraph_gate_fixture)
+# Keep DLL name cgraph_gate_fixture; put import .lib under operators/ so it
+# does not collide with the static cgraph_gate_fixture.lib in Release/.
 set_target_properties(cgraph_gate_fixture_plugin PROPERTIES
   OUTPUT_NAME cgraph_gate_fixture
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
 )
+foreach(_cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+  string(TOUPPER "${_cfg}" _cfgu)
+  set_target_properties(cgraph_gate_fixture_plugin PROPERTIES
+    "RUNTIME_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+    "LIBRARY_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+    "ARCHIVE_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+  )
+endforeach()
 if(MSVC)
   target_compile_options(cgraph_gate_fixture_plugin PRIVATE /utf-8)
 endif()
@@ -108,7 +119,16 @@ set_target_properties(cgraph_gate_cloud_plugin PROPERTIES
   OUTPUT_NAME cgraph_gate_cloud
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
 )
+foreach(_cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+  string(TOUPPER "${_cfg}" _cfgu)
+  set_target_properties(cgraph_gate_cloud_plugin PROPERTIES
+    "RUNTIME_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+    "LIBRARY_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+    "ARCHIVE_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
+  )
+endforeach()
 if(MSVC)
   target_compile_options(cgraph_gate_cloud_plugin PRIVATE /utf-8)
 endif()
