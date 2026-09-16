@@ -1,0 +1,11 @@
+{
+  "name": "cgraph",
+  "version-string": "0.0.0",
+  "dependencies": [
+    "yaml-cpp",
+    "nlohmann-json",
+    "pybind11",
+    "openssl",
+    "eigen3"
+  ]
+}

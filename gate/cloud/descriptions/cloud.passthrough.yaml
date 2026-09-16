@@ -1,0 +1,11 @@
+op_id: cloud.passthrough
+cost:
+  time:
+    class: O_n
+    scale_with: ["inputs.in.n"]
+  memory:
+    class: O_n
+  previewable:
+    memory_operator: true
+    max_n: 8192
+    time_class_in: [O_1, O_n]

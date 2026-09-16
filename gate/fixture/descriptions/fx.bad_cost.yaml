@@ -1,0 +1,6 @@
+op_id: fx.bad_cost
+cost:
+  time:
+    class: NOT_A_CLASS
+  memory:
+    class: O_1

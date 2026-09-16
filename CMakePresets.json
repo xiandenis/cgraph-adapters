@@ -1,0 +1,112 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Windows x64 (P0 host)",
+      "generator": "Visual Studio 18 2026",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build/default",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "windows-x64",
+      "displayName": "Windows x64",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/build/windows-x64"
+    },
+    {
+      "name": "windows-vs2022",
+      "displayName": "Windows x64 (VS 2022)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build/windows-vs2022",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "linux-x64",
+      "displayName": "Linux x64 (skeleton)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "osx-x64",
+      "displayName": "macOS x64 (skeleton)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/osx-x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-osx",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "osx-arm64",
+      "displayName": "macOS arm64 (skeleton)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/osx-arm64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "configuration": "Release",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    },
+    {
+      "name": "windows-x64",
+      "configurePreset": "windows-x64",
+      "configuration": "Release",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    },
+    {
+      "name": "windows-vs2022",
+      "configurePreset": "windows-vs2022",
+      "configuration": "Release",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    },
+    {
+      "name": "linux-x64",
+      "configurePreset": "linux-x64",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    },
+    {
+      "name": "osx-x64",
+      "configurePreset": "osx-x64",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    },
+    {
+      "name": "osx-arm64",
+      "configurePreset": "osx-arm64",
+      "targets": ["cgraph", "cgraph_py", "cgraph_cli"]
+    }
+  ]
+}

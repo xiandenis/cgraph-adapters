@@ -1,0 +1,84 @@
+# Git worktrees
+.worktrees/
+worktrees/
+
+# vcpkg manifest install tree
+vcpkg_installed/
+
+# DiskStore cache root (DESIGN §12.2)
+CGraphCache/
+
+# Build / compile
+build/
+out/
+dist/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.so
+*.dylib
+
+# Qt / moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.qmlc
+*.jsc
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+*.ncb
+*.aps
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Point cloud / large binary data
+*.upt2
+*.las
+*.laz
+*.e57
+*.pcd
+*.ply
+*.bin
+*.xyz
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Secrets / local env
+.env
+.env.*
+credentials.json
+*.pem
+
+# Local Studio graphs / scratch (not product sources)
+/user/
+
+# Local brainstorm / agent session artifacts
+.superpowers/
