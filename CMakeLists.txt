@@ -83,63 +83,11 @@ if(MSVC)
   target_compile_options(cgraph_gate_fixture_plugin PRIVATE /utf-8)
 endif()
 
-# --- gate/cloud (gate stubs; not production domain ops) ---
-add_library(cgraph_gate_cloud
-  gate/cloud/src/register.cpp
-  gate/cloud/src/cloud_value.cpp
-  gate/cloud/src/ply_pcd_ascii.cpp
-  gate/cloud/src/load.cpp
-  gate/cloud/src/dump.cpp
-  gate/cloud/src/voxel.cpp
-  gate/cloud/src/geom/rigid.cpp
-  gate/cloud/src/geom/knn.cpp
-  gate/cloud/src/ops/normal_est.cpp
-  gate/cloud/src/ops/fpfh.cpp
-  gate/cloud/src/ops/shot.cpp
-  gate/cloud/src/ops/match.cpp
-  gate/cloud/src/ops/ransac.cpp
-  gate/cloud/src/ops/icp_step.cpp
-  gate/cloud/src/ops/filter/passthrough.cpp
-  gate/cloud/src/ops/filter/stat_outlier.cpp
-  gate/cloud/src/ops/sample/uniform_sampling.cpp
-  gate/cloud/src/ops/segment/euclid_cluster.cpp
-)
-target_include_directories(cgraph_gate_cloud
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/gate/cloud/include>
-)
-target_link_libraries(cgraph_gate_cloud PUBLIC cgraph::cgraph Eigen3::Eigen)
-if(MSVC)
-  target_compile_options(cgraph_gate_cloud PUBLIC /utf-8)
-endif()
-
-add_library(cgraph_gate_cloud_plugin SHARED gate/cloud/src/plugin_register.cpp)
-target_link_libraries(cgraph_gate_cloud_plugin PRIVATE cgraph_gate_cloud)
-set_target_properties(cgraph_gate_cloud_plugin PROPERTIES
-  OUTPUT_NAME cgraph_gate_cloud
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
-  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/operators"
-)
-foreach(_cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
-  string(TOUPPER "${_cfg}" _cfgu)
-  set_target_properties(cgraph_gate_cloud_plugin PROPERTIES
-    "RUNTIME_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
-    "LIBRARY_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
-    "ARCHIVE_OUTPUT_DIRECTORY_${_cfgu}" "${CMAKE_BINARY_DIR}/operators"
-  )
-endforeach()
-if(MSVC)
-  target_compile_options(cgraph_gate_cloud_plugin PRIVATE /utf-8)
-endif()
-
 # Placeholder dirs for future work.
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/native")
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/vendor/rtr")
 
-install(TARGETS cgraph_gate_fixture_plugin cgraph_gate_cloud_plugin
+install(TARGETS cgraph_gate_fixture_plugin
   RUNTIME DESTINATION operators
   LIBRARY DESTINATION operators
 )
-install(DIRECTORY gate/cloud/descriptions DESTINATION operators/cloud OPTIONAL)
-install(DIRECTORY gate/cloud/usage DESTINATION operators/cloud OPTIONAL)

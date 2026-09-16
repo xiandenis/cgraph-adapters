@@ -5,9 +5,10 @@
 | Path | Role |
 | --- | --- |
 | `gate/fixture` | Kernel-acceptance `fx.*` fixtures (not production) |
-| `gate/cloud` | Gate-level cloud stubs (not production) |
 | `native/` | First-party production implementations |
 | `vendor/rtr/` | Thin wrappers over third-party `real_time_registration` (never vendor the source tree) |
+
+Gate-level `cloud.*` stubs were removed; production point-cloud ops land under `native/`.
 
 ## Build
 

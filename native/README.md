@@ -2,7 +2,7 @@
 
 First-party **production** operator implementations live here.
 
-Gate stubs stay under `gate/`. Third-party wrappers stay under `vendor/<name>/` (link libraries only; never copy algorithm repo sources).
+Gate stubs (`fx.*`) stay under `gate/fixture`. Third-party wrappers stay under `vendor/<name>/` (link libraries only; never copy algorithm repo sources). Gate-level `cloud.*` stubs were removed — ship production cloud ops here under `native/`.
 
 ## Operator doc contract (Studio「原理」)
 
