@@ -13,9 +13,11 @@ class CatOp final : public cgraph::ProcessOperator {
   CatOp() {
     op_id_ = "fx.cat";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     capability_.summary = "Byte-copy a file into this node's DiskStore slot";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire a file into in; read file out.";

@@ -13,9 +13,11 @@ class SneakOp final : public cgraph::ProcessOperator {
   SneakOp() {
     op_id_ = "fx.sneak";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     cgraph::ParamSpec undeclared;
     undeclared.name = "undeclared";
     undeclared.dtype = "string";

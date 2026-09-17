@@ -14,7 +14,8 @@ class FooWrapOp final : public cgraph::MemoryOperator {
     signature_.inputs["in"] =
         cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "foo");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::none(), /*semantic_unconstrained=*/true);
     capability_.summary = "Wrap json as plugin dtype foo";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json into in; read foo from out. Do not connect to cloud.";
@@ -39,7 +40,8 @@ class FooUnwrapOp final : public cgraph::MemoryOperator {
   FooUnwrapOp() {
     op_id_ = "fx.foo_unwrap";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "foo");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::none(), /*semantic_unconstrained=*/true);
     signature_.outputs["out"] =
         cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Unwrap plugin dtype foo to json";

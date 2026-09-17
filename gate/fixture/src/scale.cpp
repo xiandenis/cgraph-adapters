@@ -14,9 +14,11 @@ class ScaleOp final : public cgraph::MemoryOperator {
   ScaleOp() {
     op_id_ = "fx.scale";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "int");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::integer(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["y"] =
-        cgraph::make_port("y", cgraph::PortKind::Value, "int");
+        cgraph::make_port("y", cgraph::PortKind::Value, cgraph::type_ids::integer(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec k;
     k.name = "k";
     k.dtype = "int";

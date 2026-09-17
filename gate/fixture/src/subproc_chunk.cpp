@@ -13,9 +13,11 @@ class SubprocChunkOp final : public cgraph::ProcessOperator {
   SubprocChunkOp() {
     op_id_ = "fx.subproc_chunk";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     capability_.summary = "V2 gate: ProcessOperator.chunk (D12)";
     cost_.cost_class = "process.unbounded";
     usage_.connect = "Wire artifact into in; read aggregated out.";

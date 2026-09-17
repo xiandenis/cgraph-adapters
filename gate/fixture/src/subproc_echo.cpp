@@ -13,9 +13,11 @@ class SubprocEchoOp final : public cgraph::ProcessOperator {
   explicit SubprocEchoOp(std::string op_id, std::string script_name) {
     op_id_ = std::move(op_id);
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     capability_.summary = "V2 gate: real subprocess echo via tests/scripts";
     cost_.cost_class = "process.unbounded";
     usage_.connect = "Wire artifact file into in; read file out.";

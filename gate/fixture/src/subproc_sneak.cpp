@@ -17,9 +17,11 @@ class SubprocSneakOp final : public cgraph::ProcessOperator {
   SubprocSneakOp() {
     op_id_ = "fx.subproc_sneak";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     capability_.summary = "test-only";
     cost_.cost_class = "process.unbounded";
     usage_.connect = "V4-A OS sandbox gate: optional undeclared read/write.";

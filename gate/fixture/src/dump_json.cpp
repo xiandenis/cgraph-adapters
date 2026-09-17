@@ -16,7 +16,8 @@ class DumpJsonOp final : public cgraph::MemoryOperator {
     signature_.inputs["in"] =
         cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     capability_.summary = "P0 stand-in for Dump: json value to a file artifact";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json into in; read file out. Not stdlib Dump.";

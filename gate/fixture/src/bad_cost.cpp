@@ -12,9 +12,11 @@ class BadCostOp final : public cgraph::MemoryOperator {
   BadCostOp() {
     op_id_ = "fx.bad_cost";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "int");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::integer(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["y"] =
-        cgraph::make_port("y", cgraph::PortKind::Value, "int");
+        cgraph::make_port("y", cgraph::PortKind::Value, cgraph::type_ids::integer(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Fixture op with invalid CostHint YAML (Step 20 gate)";
     cost_.cost_class = "cpu.tiny";
     load_cost_description("fixture");

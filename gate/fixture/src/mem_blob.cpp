@@ -67,7 +67,8 @@ class MemBlobWriteOp final : public cgraph::MemoryOperator {
   MemBlobWriteOp() {
     op_id_ = "fx.mem_blob_write";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     cgraph::ParamSpec nbytes;
     nbytes.name = "nbytes";
     nbytes.dtype = "int";
@@ -101,9 +102,11 @@ class MemBlobXformOp final : public cgraph::MemoryOperator {
   MemBlobXformOp() {
     op_id_ = "fx.mem_blob_xform";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("in", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     cgraph::ParamSpec tag;
     tag.name = "tag";
     tag.dtype = "string";
@@ -138,7 +141,8 @@ class MemBlobSneakOp final : public cgraph::MemoryOperator {
   MemBlobSneakOp() {
     op_id_ = "fx.mem_blob_sneak";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
+        cgraph::make_port("out", cgraph::PortKind::Artifact, cgraph::type_ids::untyped(),
+                          cgraph::SemanticSpec::of("cgraph.semantic.file"));
     cgraph::ParamSpec path;
     path.name = "path";
     path.dtype = "string";
