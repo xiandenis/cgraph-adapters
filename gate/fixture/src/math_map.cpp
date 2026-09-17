@@ -108,11 +108,11 @@ class SplitGridOp final : public cgraph::MemoryOperator {
   SplitGridOp() {
     op_id_ = "fx.split_grid";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["grid_shape"] =
-        cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec th;
     th.name = "tile_h";
     th.dtype = "int";
@@ -170,15 +170,15 @@ class MergeGridOp final : public cgraph::MemoryOperator {
   MergeGridOp() {
     op_id_ = "fx.merge_grid";
     signature_.inputs["chunks"] =
-        cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
-    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     in_alias.optional = true;
     signature_.inputs["in"] = std::move(in_alias);
-    auto gs = cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto gs = cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     gs.optional = true;
     signature_.inputs["grid_shape"] = std::move(gs);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec rows;
     rows.name = "rows";
     rows.dtype = "int";
@@ -269,18 +269,18 @@ class MapChunkOp final : public cgraph::MemoryOperator {
   MapChunkOp() {
     op_id_ = "fx.map_chunk";
     signature_.inputs["items"] =
-        cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
-    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     chunks.optional = true;
     signature_.inputs["chunks"] = std::move(chunks);
-    auto kernel = cgraph::make_port("kernel", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto kernel = cgraph::make_port("kernel", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     kernel.optional = true;
     signature_.inputs["kernel"] = std::move(kernel);
-    auto shared = cgraph::make_port("shared", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto shared = cgraph::make_port("shared", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     shared.optional = true;
     signature_.inputs["shared"] = std::move(shared);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec body;
     body.name = "body";
     body.dtype = "string";

@@ -15,10 +15,10 @@ class BoxOp final : public cgraph::MemoryOperator {
     op_id_ = "fx.box";
     signature_.inputs["in"] =
         cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::untyped(),
-                          cgraph::SemanticSpec::of("document"));
+                          cgraph::SemanticSpec::of("cgraph.semantic.document"));
     signature_.outputs["out"] =
         cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::untyped(),
-                          cgraph::SemanticSpec::of("document"));
+                          cgraph::SemanticSpec::of("cgraph.semantic.document"));
     cgraph::ParamSpec tag;
     tag.name = "tag";
     tag.dtype = "string";
@@ -54,7 +54,7 @@ class BoxOp final : public cgraph::MemoryOperator {
     }
     const std::string packed = tag + "\n" + inner;
     return {{"out", cgraph::make_data_object(
-                        cgraph::type_ids::untyped(), cgraph::SemanticSpec::of("document"),
+                        cgraph::type_ids::untyped(), cgraph::SemanticSpec::of("cgraph.semantic.document"),
                         cgraph::Payload::untyped(std::vector<std::uint8_t>(
                             packed.begin(), packed.end())))}};
   }

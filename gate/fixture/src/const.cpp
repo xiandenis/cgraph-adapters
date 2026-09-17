@@ -11,7 +11,7 @@ class ConstOp final : public cgraph::MemoryOperator {
   ConstOp() {
     op_id_ = "fx.const";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";

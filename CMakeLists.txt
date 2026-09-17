@@ -153,6 +153,14 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
   if(MSVC)
     target_compile_options(cgraph_rtr_plugin PRIVATE /utf-8)
   endif()
+  add_custom_command(TARGET cgraph_rtr_plugin POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/vendor/rtr/catalog/cgraph-types.yaml"
+      "$<TARGET_FILE_DIR:cgraph_rtr_plugin>/cgraph-types.yaml"
+  )
+  install(FILES "${CMAKE_SOURCE_DIR}/vendor/rtr/catalog/cgraph-types.yaml"
+    DESTINATION operators
+  )
   install(TARGETS cgraph_rtr_plugin
     RUNTIME DESTINATION operators
     LIBRARY DESTINATION operators

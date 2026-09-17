@@ -11,9 +11,9 @@ class PhotogramSfm final : public cgraph::MemoryOperator {
   PhotogramSfm() {
     op_id_ = "photogram.sfm";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Photogrammetry SfM stub (kernel fixture, not AliceVision)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire views json into in; read sparse reconstruction json.";
@@ -38,9 +38,9 @@ class PhotogramMesh final : public cgraph::MemoryOperator {
   PhotogramMesh() {
     op_id_ = "photogram.mesh";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Photogrammetry meshing stub (kernel fixture)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire SfM json into in; read mesh json.";
@@ -65,9 +65,9 @@ class PhotogramTexturing final : public cgraph::MemoryOperator {
   PhotogramTexturing() {
     op_id_ = "photogram.texturing";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec down;
     down.name = "textureDownscale";
     down.dtype = "int";

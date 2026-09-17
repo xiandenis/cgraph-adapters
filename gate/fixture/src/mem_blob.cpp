@@ -178,7 +178,7 @@ class MemValueSmuggleOp final : public cgraph::MemoryOperator {
   MemValueSmuggleOp() {
     op_id_ = "fx.mem_value_smuggle";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec path;
     path.name = "path";
     path.dtype = "string";

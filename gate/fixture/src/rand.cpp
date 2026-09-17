@@ -13,7 +13,7 @@ class RandOp final : public cgraph::MemoryOperator {
   RandOp() {
     op_id_ = "fx.rand";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec seed;
     seed.name = "seed";
     seed.dtype = "int";

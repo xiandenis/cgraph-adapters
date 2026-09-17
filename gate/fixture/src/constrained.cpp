@@ -13,7 +13,7 @@ class ConstrainedOp final : public cgraph::MemoryOperator {
   ConstrainedOp() {
     op_id_ = "fx.constrained";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec a;
     a.name = "a";
     a.dtype = "int";
@@ -59,7 +59,7 @@ class BadSeedDeclOp final : public cgraph::MemoryOperator {
   BadSeedDeclOp() {
     op_id_ = "fx.bad_seed_decl";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     // Intentionally no seed ParamSpec while EffectSpec requires seed_param.
     effect_.effect = cgraph::EffectClass::Stochastic;
     effect_.cache = cgraph::CachePolicy::Memoizable;

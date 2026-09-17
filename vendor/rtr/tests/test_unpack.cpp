@@ -34,7 +34,7 @@ int main() {
   ctx.requested_outputs = {"matrix"};
   bool threw = false;
   try {
-    op->execute({{"align", cgraph::make_float(1.0, cgraph::SemanticSpec::of("rms"))}},
+    op->execute({{"align", cgraph::make_float(1.0, cgraph::SemanticSpec::of("rtr.semantic.rms"))}},
                 nlohmann::json::object(), ctx);
   } catch (const cgraph::OperatorError&) {
     threw = true;

@@ -16,7 +16,7 @@ static cgraph::DataObject file_obj(const std::filesystem::path& p) {
   ref.content_hash = art.content_hash;
   ref.is_dir = art.is_dir;
   return cgraph::make_artifact_object(cgraph::TypeId::parse("rtr.type.point_cloud"),
-                                      cgraph::SemanticSpec::of("point_cloud"),
+                                      cgraph::SemanticSpec::of("rtr.semantic.point_cloud"),
                                       std::move(ref));
 }
 
@@ -25,7 +25,7 @@ static cgraph::DataObject missing_obj() {
   ref.uri = "Z:/definitely/missing/cloud.pcd";
   ref.content_hash = std::string(64, '0');
   return cgraph::make_artifact_object(cgraph::TypeId::parse("rtr.type.point_cloud"),
-                                      cgraph::SemanticSpec::of("point_cloud"),
+                                      cgraph::SemanticSpec::of("rtr.semantic.point_cloud"),
                                       std::move(ref));
 }
 

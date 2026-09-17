@@ -17,11 +17,11 @@ class CoarsePoseOp final : public cgraph::MemoryOperator {
   CoarsePoseOp() {
     op_id_ = "fx.coarse_pose";
     signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["T"] =
-        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "P0 unit-T pose stub (needs both src and tgt)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire src and tgt; read T (identity).";
@@ -45,13 +45,13 @@ class CoarseRegOp final : public cgraph::MemoryOperator {
   CoarseRegOp() {
     op_id_ = "fx.coarse_reg";
     signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["T"] =
-        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["inliers"] =
-        cgraph::make_port("inliers", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("inliers", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "P0 black-box coarse registration (unit T)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Same Signature as algo.coarse_reg.v1 Model.";

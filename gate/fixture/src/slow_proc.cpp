@@ -14,9 +14,9 @@ class SlowProcOp final : public cgraph::ProcessOperator {
   SlowProcOp() {
     op_id_ = "fx.slow_proc";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Fixture Process: sleep longer than timeout_s";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json in; sleeps 3s in execute.";

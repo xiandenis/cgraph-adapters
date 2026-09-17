@@ -14,7 +14,7 @@ class DumpJsonOp final : public cgraph::MemoryOperator {
   DumpJsonOp() {
     op_id_ = "fx.dump_json";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
         cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
     capability_.summary = "P0 stand-in for Dump: json value to a file artifact";

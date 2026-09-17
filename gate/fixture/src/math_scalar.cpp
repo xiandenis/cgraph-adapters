@@ -43,12 +43,12 @@ class PowOp final : public cgraph::MemoryOperator {
   PowOp() {
     op_id_ = "fx.pow";
     signature_.inputs["base"] =
-        cgraph::make_port("base", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
-    auto exp_in = cgraph::make_port("exp", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("base", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto exp_in = cgraph::make_port("exp", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     exp_in.optional = true;
     signature_.inputs["exp"] = std::move(exp_in);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec exp;
     exp.name = "exp";
     exp.dtype = "number";
@@ -88,9 +88,9 @@ class UnaryMathOp final : public cgraph::MemoryOperator {
         reject_negative_(reject_negative) {
     op_id_ = id;
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = summary;
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";

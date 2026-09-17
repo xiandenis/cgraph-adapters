@@ -1,0 +1,51 @@
+pack_id: rtr.types
+namespace: rtr
+depends: [cgraph]
+semantics:
+  - semantic_id: rtr.semantic.point_cloud
+    applies_to: [rtr.type.point_cloud]
+  - semantic_id: rtr.semantic.align_result
+    applies_to: [rtr.type.align_result]
+  - semantic_id: rtr.semantic.information
+    applies_to: [rtr.type.information_matrix]
+  - semantic_id: rtr.semantic.rms
+    applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.final_rms
+    applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.similarity
+    applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.weight
+    applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.feature_num
+    applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.state
+    applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.auto_reg
+    applies_to: [cgraph.type.int]
+types:
+  - type_id: rtr.type.point_cloud
+    form: ref
+    formats: [pcd, ply, las]
+    semantics: [rtr.semantic.point_cloud]
+    display: {family: cloud, label: point_cloud}
+  - type_id: rtr.type.information_matrix
+    form: tensor
+    tensor: {dtype: f64, shape: [6, 6]}
+    semantics: [rtr.semantic.information]
+    display: {family: tensor, label: information}
+  - type_id: rtr.type.align_result
+    form: record
+    semantics: [rtr.semantic.align_result]
+    display: {family: record, label: align_result}
+    fields:
+      - {name: matrix, type_id: cgraph.type.matrix.r4c4.f64, semantic_id: cgraph.semantic.rigid_transform, required: true}
+      - {name: src_name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: tgt_name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: rms, type_id: cgraph.type.float, semantic_id: rtr.semantic.rms, required: true}
+      - {name: final_rms, type_id: cgraph.type.float, semantic_id: rtr.semantic.final_rms, required: true}
+      - {name: similarity, type_id: cgraph.type.float, semantic_id: rtr.semantic.similarity, required: true}
+      - {name: weight, type_id: cgraph.type.float, semantic_id: rtr.semantic.weight, required: true}
+      - {name: feature_num, type_id: cgraph.type.int, semantic_id: rtr.semantic.feature_num, required: true}
+      - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
+      - {name: auto_reg, type_id: cgraph.type.int, semantic_id: rtr.semantic.auto_reg, required: true}
+      - {name: information, type_id: rtr.type.information_matrix, semantic_id: rtr.semantic.information, required: true}

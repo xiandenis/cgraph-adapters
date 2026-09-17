@@ -28,9 +28,9 @@ class ProbeOp final : public cgraph::MemoryOperator {
   ProbeOp() {
     op_id_ = "fx.probe";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     capability_.summary = "Echo JSON; fingerprint reads params.probe file";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json into in; set params.probe to a token file.";

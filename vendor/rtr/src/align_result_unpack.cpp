@@ -55,50 +55,62 @@ class AlignResultUnpackOp final : public cgraph::MemoryOperator {
                                            matrix_to_payload(align.matrix_)));
     }
     if (want("src_name")) {
-      out.emplace("src_name", cgraph::make_string(align.src_name_,
-                                                  cgraph::SemanticSpec::of("src_name")));
+      out.emplace("src_name",
+                  cgraph::make_string(align.src_name_,
+                                      cgraph::SemanticSpec::of("cgraph.semantic.text")));
     }
     if (want("tgt_name")) {
-      out.emplace("tgt_name", cgraph::make_string(align.tgt_name_,
-                                                  cgraph::SemanticSpec::of("tgt_name")));
+      out.emplace("tgt_name",
+                  cgraph::make_string(align.tgt_name_,
+                                      cgraph::SemanticSpec::of("cgraph.semantic.text")));
     }
     if (want("rms")) {
-      out.emplace("rms",
-                  cgraph::make_float(align.rms_, cgraph::SemanticSpec::of("rms")));
+      out.emplace("rms", cgraph::make_float(align.rms_,
+                                            cgraph::SemanticSpec::of("rtr.semantic.rms")));
     }
     if (want("final_rms")) {
-      out.emplace("final_rms", cgraph::make_float(align.final_rms_,
-                                                  cgraph::SemanticSpec::of("final_rms")));
+      out.emplace("final_rms",
+                  cgraph::make_float(align.final_rms_,
+                                     cgraph::SemanticSpec::of("rtr.semantic.final_rms")));
     }
     if (want("similarity")) {
       out.emplace("similarity",
                   cgraph::make_float(align.similarity_,
-                                     cgraph::SemanticSpec::of("similarity")));
+                                     cgraph::SemanticSpec::of("rtr.semantic.similarity")));
     }
     if (want("weight")) {
-      out.emplace("weight", cgraph::make_float(align.weight_,
-                                               cgraph::SemanticSpec::of("weight")));
+      out.emplace("weight",
+                  cgraph::make_float(align.weight_,
+                                     cgraph::SemanticSpec::of("rtr.semantic.weight")));
     }
     if (want("feature_num")) {
       out.emplace("feature_num",
                   cgraph::make_int(align.feature_num_,
-                                   cgraph::SemanticSpec::of("feature_num")));
+                                   cgraph::SemanticSpec::of("rtr.semantic.feature_num")));
     }
     if (want("state")) {
       out.emplace("state",
-                  cgraph::make_int(align.state_, cgraph::SemanticSpec::of("state")));
+                  cgraph::make_int(align.state_,
+                                   cgraph::SemanticSpec::of("rtr.semantic.state")));
     }
     if (want("auto_reg")) {
-      out.emplace("auto_reg", cgraph::make_int(align.auto_reg_,
-                                               cgraph::SemanticSpec::of("auto_reg")));
+      out.emplace("auto_reg",
+                  cgraph::make_int(align.auto_reg_,
+                                   cgraph::SemanticSpec::of("rtr.semantic.auto_reg")));
     }
     if (want("information")) {
-      const std::string info = matrix6d_to_json(align.information_).dump();
+      std::vector<cgraph::Payload> items;
+      items.reserve(36);
+      for (int r = 0; r < 6; ++r) {
+        for (int c = 0; c < 6; ++c) {
+          items.push_back(cgraph::Payload::floating(align.information_(r, c)));
+        }
+      }
       out.emplace("information",
                   cgraph::make_data_object(
-                      cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("information"),
-                      cgraph::Payload::untyped(std::vector<std::uint8_t>(
-                          info.begin(), info.end()))));
+                      cgraph::TypeId::parse("rtr.type.information_matrix"),
+                      cgraph::SemanticSpec::of("rtr.semantic.information"),
+                      cgraph::Payload::list(std::move(items))));
     }
     return out;
   }

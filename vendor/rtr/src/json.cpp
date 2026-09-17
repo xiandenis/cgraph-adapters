@@ -1,8 +1,11 @@
 #include "rtr/json.hpp"
 
-#include "cgraph/type_registry.hpp"
+#include "cgraph/type_catalog.hpp"
+#include "cgraph/type_pack_yaml.hpp"
 
 #include <map>
+#include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 namespace rtr {
@@ -123,21 +126,23 @@ std::filesystem::path artifact_file_path(const cgraph::DataObject& obj) {
 }
 
 cgraph::SemanticSpec rigid_transform_semantic() {
-  cgraph::SemanticSpec s = cgraph::SemanticSpec::of("rigid_transform");
+  cgraph::SemanticSpec s =
+      cgraph::SemanticSpec::of("cgraph.semantic.rigid_transform");
   s.frame_from = "source";
   s.frame_to = "target";
   return s;
 }
 
 void register_rtr_types() {
-  cgraph::TypeRegistry::builtins().add(
-      cgraph::TypeId::parse("rtr.type.point_cloud"));
+  cgraph::TypeCatalog::global().install(cgraph::load_type_pack_yaml(
+      std::filesystem::path(__FILE__).parent_path().parent_path() /
+      "catalog" / "cgraph-types.yaml"));
 }
 
 cgraph::PortSpec cloud_port(std::string name) {
   return cgraph::make_port(std::move(name), cgraph::PortKind::Artifact,
                            cgraph::TypeId::parse("rtr.type.point_cloud"),
-                           cgraph::SemanticSpec::of("point_cloud"));
+                           cgraph::SemanticSpec::of("rtr.semantic.point_cloud"));
 }
 
 cgraph::PortSpec matrix_port(std::string name, bool optional) {
@@ -151,29 +156,52 @@ cgraph::PortSpec matrix_port(std::string name, bool optional) {
 
 cgraph::PortSpec align_port(std::string name) {
   return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
-                           cgraph::type_ids::record_align_result(),
-                           cgraph::SemanticSpec::of("align_result"));
+                           cgraph::TypeId::parse("rtr.type.align_result"),
+                           cgraph::SemanticSpec::of("rtr.semantic.align_result"));
 }
 
 cgraph::PortSpec scalar_float_port(std::string name) {
-  return cgraph::make_port(name, cgraph::PortKind::Value, cgraph::type_ids::floating(),
-                           cgraph::SemanticSpec::of(name));
+  static const std::unordered_map<std::string, const char*> kFloatSem{
+      {"rms", "rtr.semantic.rms"},
+      {"final_rms", "rtr.semantic.final_rms"},
+      {"similarity", "rtr.semantic.similarity"},
+      {"weight", "rtr.semantic.weight"},
+  };
+  const auto it = kFloatSem.find(name);
+  if (it == kFloatSem.end()) {
+    throw std::invalid_argument("scalar_float_port: unknown name: " + name);
+  }
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           cgraph::type_ids::floating(),
+                           cgraph::SemanticSpec::of(it->second));
 }
 
 cgraph::PortSpec scalar_int_port(std::string name) {
-  return cgraph::make_port(name, cgraph::PortKind::Value, cgraph::type_ids::integer(),
-                           cgraph::SemanticSpec::of(name));
+  static const std::unordered_map<std::string, const char*> kIntSem{
+      {"feature_num", "rtr.semantic.feature_num"},
+      {"state", "rtr.semantic.state"},
+      {"auto_reg", "rtr.semantic.auto_reg"},
+  };
+  const auto it = kIntSem.find(name);
+  if (it == kIntSem.end()) {
+    throw std::invalid_argument("scalar_int_port: unknown name: " + name);
+  }
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           cgraph::type_ids::integer(),
+                           cgraph::SemanticSpec::of(it->second));
 }
 
 cgraph::PortSpec scalar_string_port(std::string name) {
-  return cgraph::make_port(name, cgraph::PortKind::Value, cgraph::type_ids::string(),
-                           cgraph::SemanticSpec::of(name));
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           cgraph::type_ids::string(),
+                           cgraph::SemanticSpec::of("cgraph.semantic.text"));
 }
 
 cgraph::PortSpec information_port(std::string name) {
-  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
-                           cgraph::type_ids::tensor(),
-                           cgraph::SemanticSpec::of("information"));
+  return cgraph::make_port(
+      std::move(name), cgraph::PortKind::Value,
+      cgraph::TypeId::parse("rtr.type.information_matrix"),
+      cgraph::SemanticSpec::of("rtr.semantic.information"));
 }
 
 cgraph::Payload matrix_to_payload(const Eigen::Matrix4d& m) {
@@ -211,13 +239,20 @@ cgraph::DataObject align_result_to_data(const Ddx::AlignResult& a) {
   fields.emplace("feature_num", cgraph::Payload::integer(a.feature_num_));
   fields.emplace("state", cgraph::Payload::integer(a.state_));
   fields.emplace("auto_reg", cgraph::Payload::integer(a.auto_reg_));
-  const std::string info = matrix6d_to_json(a.information_).dump();
-  fields.emplace("information",
-                 cgraph::Payload::untyped(std::vector<std::uint8_t>(info.begin(),
-                                                                    info.end())));
-  return cgraph::make_data_object(cgraph::type_ids::record_align_result(),
-                                  cgraph::SemanticSpec::of("align_result"),
-                                  cgraph::Payload::record(std::move(fields)));
+  {
+    std::vector<cgraph::Payload> items;
+    items.reserve(36);
+    for (int r = 0; r < 6; ++r) {
+      for (int c = 0; c < 6; ++c) {
+        items.push_back(cgraph::Payload::floating(a.information_(r, c)));
+      }
+    }
+    fields.emplace("information", cgraph::Payload::list(std::move(items)));
+  }
+  return cgraph::make_data_object(
+      cgraph::TypeId::parse("rtr.type.align_result"),
+      cgraph::SemanticSpec::of("rtr.semantic.align_result"),
+      cgraph::Payload::record(std::move(fields)));
 }
 
 Ddx::AlignResult align_result_from_data(const cgraph::DataObject& obj) {
@@ -246,10 +281,18 @@ Ddx::AlignResult align_result_from_data(const cgraph::DataObject& obj) {
   a.state_ = fields.count("state") ? fields.at("state").as_int() : 0;
   a.auto_reg_ = fields.count("auto_reg") ? fields.at("auto_reg").as_int() : 0;
   if (fields.count("information")) {
-    const auto& bytes = fields.at("information").as_untyped();
-    const nlohmann::json j =
-        nlohmann::json::parse(std::string(bytes.begin(), bytes.end()));
-    a.information_ = matrix6d_from_json(j);
+    const auto& info = fields.at("information");
+    if (info.kind() != cgraph::Payload::Kind::List ||
+        info.as_list().size() != 36) {
+      throw_json("align_result: information must be 36 floats");
+    }
+    int i = 0;
+    for (int r = 0; r < 6; ++r) {
+      for (int c = 0; c < 6; ++c) {
+        a.information_(r, c) =
+            info.as_list()[static_cast<std::size_t>(i++)].as_float();
+      }
+    }
   } else {
     a.information_ = Eigen::Matrix<double, 6, 6>::Identity();
   }
