@@ -21,6 +21,19 @@ REM or: set RTR_INSTALL_PARTY=... && sync-rtr-install.cmd
 
 Then `find_package(real_time_registration CONFIG REQUIRED)`.
 
+## First-slice operators (`CGRAPH_ADAPTERS_WITH_RTR`)
+
+| op_id | RTR type | Notes |
+|-------|----------|--------|
+| `rtr.rough_global_reg` | `Ddx::RoughGlobalReg` | File Artifact in; AlignResult JSON out |
+| `rtr.fine_registration` | `Ddx::FineRegistration` | Optional 4×4 `guess`, default I |
+| `rtr.align_result.unpack` | (none) | Split AlignResult JSON fields |
+
+CMake: `-DCGRAPH_ADAPTERS_WITH_RTR=ON` (default). Plugin name: `cgraph_rtr.dll` / `cgraph_rtr.so`.
+Do **not** wrap `RealTimeRegistrationSession` / `RealTimeManager` here.
+
+`find_package(real_time_registration)` still requests Eigen 3.3; this tree may only have Eigen 5. `cmake/rtr-dep-shim/` plus a copy into CMake `pkgRedirects` satisfies that version check without linking Manager. Configure also needs PCL/OpenCV/PDAL from the prefix RTR was built against (example: `D:/install/vcpkg/installed/x64-windows` on `CMAKE_PREFIX_PATH`).
+
 ## Forbidden
 
 - Do **not** copy the `real_time_registration` git tree into LidarWorkFlow2 / cgraph-adapters / cgraph-kernel / cgraph-studio.

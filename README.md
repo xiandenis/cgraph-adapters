@@ -12,17 +12,20 @@ Gate-level `cloud.*` stubs were removed; production point-cloud ops land under `
 
 ## Build
 
-Requires an installed `cgraph` package (`find_package(cgraph)`):
+Requires an installed `cgraph` package (`find_package(cgraph)`). From the **LidarWorkFlow2** workspace root (out-of-tree `build/cgraph-adapters`, shared `install/`):
 
 ```bat
-cmake -S . -B build -DCMAKE_PREFIX_PATH=..\cgraph-kernel\install
-cmake --build build
+cmake -S cgraph-adapters -B build\cgraph-adapters ^
+  -DCMAKE_PREFIX_PATH=%CD%\install -DCMAKE_INSTALL_PREFIX=%CD%\install
+cmake --build build\cgraph-adapters --config Release
 ```
 
-Dynlib plugins are written to `build/operators/`. Point the kernel at them:
+`CGRAPH_ADAPTERS_WITH_RTR` defaults ON and `find_package(real_time_registration)` (sync with `sync-rtr-install.cmd` first). Plugin `cgraph_rtr` is written next to the fixture plugin.
+
+Dynlib plugins are written to `build/cgraph-adapters/operators/` (or in-tree `build/operators/`). Point the kernel at them:
 
 ```bat
-set CGRAPH_OPERATOR_PATH=%CD%\build\operators
+set CGRAPH_OPERATOR_PATH=%CD%\build\cgraph-adapters\operators
 ```
 
 ## Remotes
