@@ -153,6 +153,8 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
   if(MSVC)
     target_compile_options(cgraph_rtr_plugin PRIVATE /utf-8)
   endif()
+  # Type Pack sidecar beside the DLL (Type Catalog §5). Kernel Process scan
+  # skips cgraph-types.yaml / pack_id documents; do not treat this as a Process.
   add_custom_command(TARGET cgraph_rtr_plugin POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
       "${CMAKE_SOURCE_DIR}/vendor/rtr/catalog/cgraph-types.yaml"

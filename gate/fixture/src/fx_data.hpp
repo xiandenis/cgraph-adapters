@@ -73,7 +73,8 @@ inline cgraph::DataObject from_json(const nlohmann::json& value,
                                             ? cgraph::type_ids::untyped()
                                             : spec.type,
                                         spec.semantic.meaning.empty()
-                                            ? cgraph::SemanticSpec::of("file")
+                                            ? cgraph::SemanticSpec::of(
+                                                  "cgraph.semantic.file")
                                             : spec.semantic,
                                         std::move(ref));
   }
@@ -82,8 +83,8 @@ inline cgraph::DataObject from_json(const nlohmann::json& value,
   cgraph::SemanticSpec sem = spec.semantic;
   if (sem.meaning.empty() || sem.meaning == "none") {
     sem = spec.kind == cgraph::PortKind::Artifact
-              ? cgraph::SemanticSpec::of("file")
-              : cgraph::SemanticSpec::of("document");
+              ? cgraph::SemanticSpec::of("cgraph.semantic.file")
+              : cgraph::SemanticSpec::of("cgraph.semantic.document");
   }
   return cgraph::data_from_json_literal(std::move(type), std::move(sem), value);
 }
@@ -111,7 +112,8 @@ inline std::map<std::string, cgraph::DataObject> wrap(
     if (it == signature.outputs.end()) {
       out.emplace(name, cgraph::data_from_json_literal(
                             cgraph::type_ids::untyped(),
-                            cgraph::SemanticSpec::of("document"), value));
+                            cgraph::SemanticSpec::of("cgraph.semantic.document"),
+                            value));
     } else {
       out.emplace(name, from_json(value, it->second));
     }

@@ -207,6 +207,7 @@ class ReshapeOp final : public cgraph::MemoryOperator {
     cgraph::ParamSpec shape;
     shape.name = "shape";
     shape.dtype = "json";
+    shape.bindable = false;
     signature_.params["shape"] = shape;
     capability_.summary = "Reshape ndarray JSON";
     capability_.tags = {"conv", "fixture"};

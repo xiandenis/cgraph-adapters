@@ -14,7 +14,8 @@ class ConstOp final : public cgraph::MemoryOperator {
         cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
     cgraph::ParamSpec value;
     value.name = "value";
-    value.dtype = "json";
+    value.dtype = "string";
+    value.bindable = false;
     signature_.params["value"] = std::move(value);
     capability_.summary = "Emit a JSON literal";
     capability_.tags = {"math", "fixture", "io"};

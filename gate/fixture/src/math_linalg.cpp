@@ -168,6 +168,7 @@ class ConstMatrixOp final : public cgraph::MemoryOperator {
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
+    value.bindable = false;
     value.doc = "Row-major nested list [[...],...] or {shape:[r,c], data:[...]}";
     signature_.params["value"] = std::move(value);
     capability_.summary = "Emit a matrix as nested row-major JSON lists";
@@ -196,6 +197,7 @@ class ConstVectorOp final : public cgraph::MemoryOperator {
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
+    value.bindable = false;
     value.doc = "1-D number list [...]";
     signature_.params["value"] = std::move(value);
     capability_.summary = "Emit a vector as a JSON number list";
@@ -223,6 +225,7 @@ class ConstVectorArrayOp final : public cgraph::MemoryOperator {
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
+    value.bindable = false;
     value.doc = "List of vectors: [[...], [...], ...]";
     signature_.params["value"] = std::move(value);
     capability_.summary = "Emit a list of vectors as nested JSON lists";
