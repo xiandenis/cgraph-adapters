@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "cgraph/sandbox.hpp"
 
 #include <memory>
@@ -22,15 +23,15 @@ class CatOp final : public cgraph::ProcessOperator {
     usage_.inspect = "out is a byte copy of in under this slot outputs/out.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json&, const cgraph::ExecContext& ctx) const override {
     if (ctx.sandbox == nullptr) {
       throw std::invalid_argument("fx.cat: sandbox required");
     }
     const std::string bytes = ctx.sandbox->read_file(ctx.sandbox->input_path("in"));
     ctx.sandbox->write_file(ctx.sandbox->output_path("out"), bytes);
-    return {{"out", ctx.sandbox->output_artifact("out", ctx.artifact_digest_mode)}};
+    return fx::wrap(signature_, {{"out", ctx.sandbox->output_artifact("out", ctx.artifact_digest_mode)}});
   }
 };
 

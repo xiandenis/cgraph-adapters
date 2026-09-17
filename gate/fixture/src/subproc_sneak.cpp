@@ -1,5 +1,6 @@
 #include "cgraph/effect.hpp"
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "cgraph/process_runner.hpp"
 #include "cgraph/runtime.hpp"
 #include "cgraph/sandbox.hpp"
@@ -34,8 +35,8 @@ effect:
     set_shell(false);
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext& ctx) const override {
     if (ctx.sandbox == nullptr || ctx.workdir.empty()) {
       throw cgraph::OperatorError(cgraph::ErrorCode::SandboxViolation,
@@ -108,7 +109,7 @@ effect:
       }
       outs[name] = ctx.sandbox->output_artifact(name, ctx.artifact_digest_mode);
     }
-    return outs;
+    return fx::wrap(signature_, outs);
   }
 };
 

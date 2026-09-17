@@ -1,9 +1,11 @@
 #include "rtr/ops.hpp"
 
+#include "cgraph/data_helpers.hpp"
 #include "cgraph/ops.hpp"
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace rtr {
 namespace {
@@ -12,92 +14,91 @@ class AlignResultUnpackOp final : public cgraph::MemoryOperator {
  public:
   AlignResultUnpackOp() {
     op_id_ = "rtr.align_result.unpack";
-    signature_.inputs["align"] =
-        cgraph::make_port("align", cgraph::PortKind::Value, "json");
-    signature_.outputs["matrix"] =
-        cgraph::make_port("matrix", cgraph::PortKind::Value, "json");
-    signature_.outputs["src_name"] =
-        cgraph::make_port("src_name", cgraph::PortKind::Value, "string");
-    signature_.outputs["tgt_name"] =
-        cgraph::make_port("tgt_name", cgraph::PortKind::Value, "string");
-    signature_.outputs["rms"] =
-        cgraph::make_port("rms", cgraph::PortKind::Value, "float");
-    signature_.outputs["final_rms"] =
-        cgraph::make_port("final_rms", cgraph::PortKind::Value, "float");
-    signature_.outputs["similarity"] =
-        cgraph::make_port("similarity", cgraph::PortKind::Value, "float");
-    signature_.outputs["weight"] =
-        cgraph::make_port("weight", cgraph::PortKind::Value, "float");
-    signature_.outputs["feature_num"] =
-        cgraph::make_port("feature_num", cgraph::PortKind::Value, "int");
-    signature_.outputs["state"] =
-        cgraph::make_port("state", cgraph::PortKind::Value, "int");
-    signature_.outputs["auto_reg"] =
-        cgraph::make_port("auto_reg", cgraph::PortKind::Value, "int");
-    signature_.outputs["information"] =
-        cgraph::make_port("information", cgraph::PortKind::Value, "json");
-    capability_.summary = "Split AlignResult JSON into field ports";
+    signature_.inputs["align"] = align_port("align");
+    signature_.outputs["matrix"] = matrix_port("matrix");
+    signature_.outputs["src_name"] = scalar_string_port("src_name");
+    signature_.outputs["tgt_name"] = scalar_string_port("tgt_name");
+    signature_.outputs["rms"] = scalar_float_port("rms");
+    signature_.outputs["final_rms"] = scalar_float_port("final_rms");
+    signature_.outputs["similarity"] = scalar_float_port("similarity");
+    signature_.outputs["weight"] = scalar_float_port("weight");
+    signature_.outputs["feature_num"] = scalar_int_port("feature_num");
+    signature_.outputs["state"] = scalar_int_port("state");
+    signature_.outputs["auto_reg"] = scalar_int_port("auto_reg");
+    signature_.outputs["information"] = information_port("information");
+    capability_.summary = "Split AlignResult into typed field ports";
     cost_.cost_class = "cpu.tiny";
     effect_.effect = cgraph::EffectClass::Pure;
     effect_.cache = cgraph::CachePolicy::Memoizable;
     usage_.principle =
-        "将 AlignResult JSON 按字段拆成独立 Value 口，数值不变。下游只连需要的口。";
+        "将 AlignResult 记录按字段拆成独立 Value 口。matrix 为源→目标刚体变换。";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json&,
       const cgraph::ExecContext& ctx) const override {
     const auto it = inputs.find("align");
-    if (it == inputs.end() || !it->second.is_object()) {
+    if (it == inputs.end()) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
-                                  "rtr.align_result.unpack: align must be an object");
+                                  "rtr.align_result.unpack: missing align");
     }
-    const nlohmann::json& align = it->second;
+    const Ddx::AlignResult align = align_result_from_data(it->second);
     auto want = [&](const char* port) {
       return ctx.requested_outputs.empty() ||
              ctx.requested_outputs.count(port) != 0;
     };
-    auto require = [&](const char* key) -> const nlohmann::json& {
-      if (!align.contains(key)) {
-        throw cgraph::OperatorError(
-            cgraph::ErrorCode::OpFailed,
-            std::string("rtr.align_result.unpack: missing field ") + key);
-      }
-      return align.at(key);
-    };
-    std::map<std::string, nlohmann::json> out;
+    std::map<std::string, cgraph::DataObject> out;
     if (want("matrix")) {
-      out.emplace("matrix", require("matrix"));
+      out.emplace("matrix",
+                  cgraph::make_data_object(cgraph::type_ids::matrix_r4c4_f64(),
+                                           rigid_transform_semantic(),
+                                           matrix_to_payload(align.matrix_)));
     }
     if (want("src_name")) {
-      out.emplace("src_name", require("src_name"));
+      out.emplace("src_name", cgraph::make_string(align.src_name_,
+                                                  cgraph::SemanticSpec::of("src_name")));
     }
     if (want("tgt_name")) {
-      out.emplace("tgt_name", require("tgt_name"));
+      out.emplace("tgt_name", cgraph::make_string(align.tgt_name_,
+                                                  cgraph::SemanticSpec::of("tgt_name")));
     }
     if (want("rms")) {
-      out.emplace("rms", require("rms"));
+      out.emplace("rms",
+                  cgraph::make_float(align.rms_, cgraph::SemanticSpec::of("rms")));
     }
     if (want("final_rms")) {
-      out.emplace("final_rms", require("final_rms"));
+      out.emplace("final_rms", cgraph::make_float(align.final_rms_,
+                                                  cgraph::SemanticSpec::of("final_rms")));
     }
     if (want("similarity")) {
-      out.emplace("similarity", require("similarity"));
+      out.emplace("similarity",
+                  cgraph::make_float(align.similarity_,
+                                     cgraph::SemanticSpec::of("similarity")));
     }
     if (want("weight")) {
-      out.emplace("weight", require("weight"));
+      out.emplace("weight", cgraph::make_float(align.weight_,
+                                               cgraph::SemanticSpec::of("weight")));
     }
     if (want("feature_num")) {
-      out.emplace("feature_num", require("feature_num"));
+      out.emplace("feature_num",
+                  cgraph::make_int(align.feature_num_,
+                                   cgraph::SemanticSpec::of("feature_num")));
     }
     if (want("state")) {
-      out.emplace("state", require("state"));
+      out.emplace("state",
+                  cgraph::make_int(align.state_, cgraph::SemanticSpec::of("state")));
     }
     if (want("auto_reg")) {
-      out.emplace("auto_reg", require("auto_reg"));
+      out.emplace("auto_reg", cgraph::make_int(align.auto_reg_,
+                                               cgraph::SemanticSpec::of("auto_reg")));
     }
     if (want("information")) {
-      out.emplace("information", require("information"));
+      const std::string info = matrix6d_to_json(align.information_).dump();
+      out.emplace("information",
+                  cgraph::make_data_object(
+                      cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("information"),
+                      cgraph::Payload::untyped(std::vector<std::uint8_t>(
+                          info.begin(), info.end()))));
     }
     return out;
   }

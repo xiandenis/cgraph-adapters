@@ -5,8 +5,11 @@
 #endif
 
 #include "cgraph/runtime.hpp"
+#include "cgraph/type_registry.hpp"
+#include "rtr/json.hpp"
 #include "rtr/ops.hpp"
 
 extern "C" CGRAPH_PLUGIN_EXPORT void cgraph_plugin_register(cgraph::Runtime& rt) {
+  rtr::register_rtr_types();
   rtr::register_rtr_ops(rt.registry());
 }

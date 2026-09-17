@@ -2,6 +2,7 @@
 #include "rtr/json.hpp"
 #include "rtr/ops.hpp"
 
+#include "cgraph/data_helpers.hpp"
 #include "cgraph/ops.hpp"
 
 int main() {
@@ -19,7 +20,7 @@ int main() {
   a.matrix_ = T;
   a.rms_ = 0.05;
   a.information_ = Eigen::Matrix<double, 6, 6>::Identity();
-  const nlohmann::json sample = rtr::align_result_to_json(a);
+  const cgraph::DataObject sample = rtr::align_result_to_data(a);
 
   cgraph::ExecContext ctx;
   ctx.requested_outputs = {"matrix", "rms"};
@@ -27,14 +28,14 @@ int main() {
   RTR_CHECK(out.count("matrix") == 1);
   RTR_CHECK(out.count("rms") == 1);
   RTR_CHECK(out.count("src_name") == 0);
-  RTR_CHECK(out.at("rms").get<double>() == 0.05);
-  RTR_CHECK(out.at("matrix")[0][3].get<double>() == 2.0);
+  RTR_CHECK(out.at("rms").payload.as_float() == 0.05);
+  RTR_CHECK(out.at("matrix").payload.as_matrix4x4()[3] == 2.0);
 
   ctx.requested_outputs = {"matrix"};
   bool threw = false;
   try {
-    op->execute({{"align", nlohmann::json{{"rms", 1}}}}, nlohmann::json::object(),
-                ctx);
+    op->execute({{"align", cgraph::make_float(1.0, cgraph::SemanticSpec::of("rms"))}},
+                nlohmann::json::object(), ctx);
   } catch (const cgraph::OperatorError&) {
     threw = true;
   } catch (const std::exception&) {

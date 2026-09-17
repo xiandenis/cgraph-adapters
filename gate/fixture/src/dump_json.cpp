@@ -1,5 +1,6 @@
 #include "cgraph/artifact.hpp"
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <fstream>
 #include <memory>
@@ -13,7 +14,7 @@ class DumpJsonOp final : public cgraph::MemoryOperator {
   DumpJsonOp() {
     op_id_ = "fx.dump_json";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
         cgraph::make_port("out", cgraph::PortKind::Artifact, "file");
     capability_.summary = "P0 stand-in for Dump: json value to a file artifact";
@@ -23,9 +24,10 @@ class DumpJsonOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Writes canon-equivalent JSON text to workdir/outputs/out.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext& ctx) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.dump_json: missing input 'in'");
@@ -42,8 +44,8 @@ class DumpJsonOp final : public cgraph::MemoryOperator {
     const std::string text = it->second.dump();
     file.write(text.data(), static_cast<std::streamsize>(text.size()));
     file.close();
-    return {{"out", cgraph::artifact_to_json(cgraph::make_file_artifact(
-                        out, cgraph::DType::parse("file"), ctx.artifact_digest_mode))}};
+    return fx::wrap(signature_, {{"out", cgraph::artifact_to_json(cgraph::make_file_artifact(
+                        out, cgraph::DType::parse("file"), ctx.artifact_digest_mode))}});
   }
 };
 

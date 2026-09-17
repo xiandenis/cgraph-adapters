@@ -1,5 +1,6 @@
 #include "cgraph/artifact.hpp"
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "math_nd_util.hpp"
 
 #include <algorithm>
@@ -178,7 +179,7 @@ std::vector<fs::path> resolve_file_list(const nlohmann::json& items,
       throw std::invalid_argument(std::string(op) +
                                   ": artifact must be a directory");
     }
-    return list_csv_files(art.path);
+    return list_csv_files(art.location);
   }
   if (items.is_object()) {
     if (items.contains("files") && items["files"].is_array()) {
@@ -217,7 +218,7 @@ class InputArtifactDirOp final : public cgraph::MemoryOperator {
   InputArtifactDirOp() {
     op_id_ = "fx.input_artifact_dir";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec path;
     path.name = "path";
     path.dtype = "string";
@@ -234,8 +235,8 @@ class InputArtifactDirOp final : public cgraph::MemoryOperator {
         "P0 returns JSON path list (not Artifact) for Runtime.execute tests.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
     const fs::path dir = require_path_param(params, "fx.input_artifact_dir");
     if (!fs::is_directory(dir)) {
@@ -245,7 +246,7 @@ class InputArtifactDirOp final : public cgraph::MemoryOperator {
     const auto files = list_csv_files(dir);
     nlohmann::json manifest = {{"path", dir.string()},
                                {"files", files_to_json(files)}};
-    return {{"out", std::move(manifest)}};
+    return fx::wrap(signature_, {{"out", std::move(manifest)}});
   }
 };
 
@@ -254,21 +255,21 @@ class KalmanIterOp final : public cgraph::MemoryOperator {
   KalmanIterOp() {
     op_id_ = "fx.kalman_iter";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
-    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     Q.optional = true;
     signature_.inputs["Q"] = std::move(Q);
-    auto R = cgraph::make_port("R", cgraph::PortKind::Value, "json");
+    auto R = cgraph::make_port("R", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     R.optional = true;
     signature_.inputs["R"] = std::move(R);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["final_state"] =
-        cgraph::make_port("final_state", cgraph::PortKind::Value, "json");
+        cgraph::make_port("final_state", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["final_cov"] =
-        cgraph::make_port("final_cov", cgraph::PortKind::Value, "json");
+        cgraph::make_port("final_cov", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["mean_innov"] =
-        cgraph::make_port("mean_innov", cgraph::PortKind::Value, "json");
+        cgraph::make_port("mean_innov", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec q;
     q.name = "Q";
     q.dtype = "float";
@@ -286,9 +287,10 @@ class KalmanIterOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out has final_state, final_cov, innovations, mean_innov.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& in =
         math_nd::require_input(inputs, "in", "fx.kalman_iter");
     std::vector<double> zs;
@@ -308,10 +310,10 @@ class KalmanIterOp final : public cgraph::MemoryOperator {
       R = math_nd::require_number(rit->second, "fx.kalman_iter", "R");
     }
     const KalmanResult kr = kalman_1d(zs, Q, R);
-    return {{"out", kalman_result_json(kr)},
+    return fx::wrap(signature_, {{"out", kalman_result_json(kr)},
             {"final_state", kr.final_state},
             {"final_cov", kr.final_cov},
-            {"mean_innov", kr.mean_innov}};
+            {"mean_innov", kr.mean_innov}});
   }
 };
 
@@ -320,24 +322,24 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
   MapChunkFilesOp() {
     op_id_ = "fx.map_chunk_files";
     signature_.inputs["items"] =
-        cgraph::make_port("items", cgraph::PortKind::Value, "json");
-    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, "json");
+        cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     chunks.optional = true;
     signature_.inputs["chunks"] = std::move(chunks);
-    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, "json");
+    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     Q.optional = true;
     signature_.inputs["Q"] = std::move(Q);
-    auto R = cgraph::make_port("R", cgraph::PortKind::Value, "json");
+    auto R = cgraph::make_port("R", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     R.optional = true;
     signature_.inputs["R"] = std::move(R);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["StatesDir"] =
-        cgraph::make_port("StatesDir", cgraph::PortKind::Value, "json");
+        cgraph::make_port("StatesDir", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["CovDir"] =
-        cgraph::make_port("CovDir", cgraph::PortKind::Value, "json");
+        cgraph::make_port("CovDir", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["InnovList"] =
-        cgraph::make_port("InnovList", cgraph::PortKind::Value, "json");
+        cgraph::make_port("InnovList", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec body;
     body.name = "body";
     body.dtype = "string";
@@ -357,9 +359,10 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Value lists stand in for artifact dirs in P0 tests.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& items = math_nd::require_input_alias(
         inputs, "items", "chunks", "fx.map_chunk_files");
     const std::string body =
@@ -409,10 +412,10 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
         innovs.push_back(nullptr);
       }
     }
-    return {{"out", std::move(results)},
+    return fx::wrap(signature_, {{"out", std::move(results)},
             {"StatesDir", std::move(states)},
             {"CovDir", std::move(covs)},
-            {"InnovList", std::move(innovs)}};
+            {"InnovList", std::move(innovs)}});
   }
 };
 
@@ -421,12 +424,12 @@ class MergeArtifactDirsOp final : public cgraph::MemoryOperator {
   MergeArtifactDirsOp() {
     op_id_ = "fx.merge_artifact_dirs";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
-    auto items = cgraph::make_port("items", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto items = cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     items.optional = true;
     signature_.inputs["items"] = std::move(items);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary =
         "Merge file-list / value-list artifact dir stand-ins into one list";
     capability_.tags = {"math", "fixture"};
@@ -436,9 +439,10 @@ class MergeArtifactDirsOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Does not copy files; Value-plane merge for tests.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& in =
         math_nd::require_input_alias(inputs, "in", "items",
                                      "fx.merge_artifact_dirs");
@@ -464,7 +468,7 @@ class MergeArtifactDirsOp final : public cgraph::MemoryOperator {
       out.push_back(v);
     };
     append(in);
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 
@@ -473,9 +477,9 @@ class ListReduceMeanOp final : public cgraph::MemoryOperator {
   ListReduceMeanOp() {
     op_id_ = "fx.list_reduce_mean";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Mean of a numeric JSON list (skips nulls)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -484,9 +488,10 @@ class ListReduceMeanOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Empty/all-null → error.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& in =
         math_nd::require_input(inputs, "in", "fx.list_reduce_mean");
     if (!in.is_array()) {
@@ -509,7 +514,7 @@ class ListReduceMeanOp final : public cgraph::MemoryOperator {
     if (n == 0) {
       throw std::invalid_argument("fx.list_reduce_mean: empty list");
     }
-    return {{"out", sum / static_cast<double>(n)}};
+    return fx::wrap(signature_, {{"out", sum / static_cast<double>(n)}});
   }
 };
 

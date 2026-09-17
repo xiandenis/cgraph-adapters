@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -14,9 +15,9 @@ class AbsOp final : public cgraph::MemoryOperator {
   AbsOp() {
     op_id_ = "fx.abs";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Absolute value of a JSON number";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -25,9 +26,10 @@ class AbsOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out = |in|. abs(5) and abs(-5) share output_digest.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.abs: missing input 'in'");
@@ -41,9 +43,9 @@ class AbsOp final : public cgraph::MemoryOperator {
         throw std::invalid_argument("fx.abs: int64 overflow");
       }
       const std::int64_t out = v < 0 ? -v : v;
-      return {{"out", out}};
+      return fx::wrap(signature_, {{"out", out}});
     }
-    return {{"out", std::fabs(it->second.get<double>())}};
+    return fx::wrap(signature_, {{"out", std::fabs(it->second.get<double>())}});
   }
 };
 

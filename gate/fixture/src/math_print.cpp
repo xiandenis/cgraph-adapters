@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -21,11 +22,11 @@ class SubOp final : public cgraph::MemoryOperator {
   SubOp() {
     op_id_ = "fx.sub";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["diff"] =
-        cgraph::make_port("diff", cgraph::PortKind::Value, "json");
+        cgraph::make_port("diff", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Subtract two JSON numbers (a - b)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -34,9 +35,10 @@ class SubOp final : public cgraph::MemoryOperator {
     usage_.inspect = "diff = a - b.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto ait = inputs.find("a");
     const auto bit = inputs.find("b");
     if (ait == inputs.end() || bit == inputs.end()) {
@@ -51,9 +53,9 @@ class SubOp final : public cgraph::MemoryOperator {
       if (sub_would_overflow(a, b)) {
         throw std::invalid_argument("fx.sub: int64 overflow");
       }
-      return {{"diff", a - b}};
+      return fx::wrap(signature_, {{"diff", a - b}});
     }
-    return {{"diff", ait->second.get<double>() - bit->second.get<double>()}};
+    return fx::wrap(signature_, {{"diff", ait->second.get<double>() - bit->second.get<double>()}});
   }
 };
 
@@ -62,11 +64,11 @@ class DivOp final : public cgraph::MemoryOperator {
   DivOp() {
     op_id_ = "fx.div";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["quot"] =
-        cgraph::make_port("quot", cgraph::PortKind::Value, "json");
+        cgraph::make_port("quot", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Divide two JSON numbers (float quot)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -75,9 +77,10 @@ class DivOp final : public cgraph::MemoryOperator {
     usage_.inspect = "quot = double(a) / double(b).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto ait = inputs.find("a");
     const auto bit = inputs.find("b");
     if (ait == inputs.end() || bit == inputs.end()) {
@@ -91,7 +94,7 @@ class DivOp final : public cgraph::MemoryOperator {
     if (b == 0.0) {
       throw std::invalid_argument("fx.div: division by zero");
     }
-    return {{"quot", a / b}};
+    return fx::wrap(signature_, {{"quot", a / b}});
   }
 };
 
@@ -100,9 +103,9 @@ class NegOp final : public cgraph::MemoryOperator {
   NegOp() {
     op_id_ = "fx.neg";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Negate a JSON number (-x)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -111,9 +114,10 @@ class NegOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out = -in.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.neg: missing input 'in'");
@@ -126,9 +130,9 @@ class NegOp final : public cgraph::MemoryOperator {
       if (v == std::numeric_limits<std::int64_t>::min()) {
         throw std::invalid_argument("fx.neg: int64 overflow");
       }
-      return {{"out", -v}};
+      return fx::wrap(signature_, {{"out", -v}});
     }
-    return {{"out", -it->second.get<double>()}};
+    return fx::wrap(signature_, {{"out", -it->second.get<double>()}});
   }
 };
 
@@ -137,9 +141,9 @@ class PrintOp final : public cgraph::MemoryOperator {
   PrintOp() {
     op_id_ = "fx.print";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec label;
     label.name = "label";
     label.dtype = "string";
@@ -155,9 +159,10 @@ class PrintOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Writes one line to stdout; does not change the value.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.print: missing input 'in'");
@@ -168,7 +173,7 @@ class PrintOp final : public cgraph::MemoryOperator {
       label = params["label"].get<std::string>();
     }
     std::cout << "[" << label << "] " << it->second.dump() << std::endl;
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

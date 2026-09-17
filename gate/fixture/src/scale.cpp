@@ -1,5 +1,6 @@
 #include "cgraph/cost.hpp"
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -32,9 +33,10 @@ class ScaleOp final : public cgraph::MemoryOperator {
     cgraph::apply_legacy_cost_class(cost_);
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto xit = inputs.find("x");
     if (xit == inputs.end()) {
       throw std::invalid_argument("fx.scale: missing input 'x'");
@@ -44,7 +46,7 @@ class ScaleOp final : public cgraph::MemoryOperator {
     }
     const auto x = xit->second.get<std::int64_t>();
     const auto k = params["k"].get<std::int64_t>();
-    return {{"y", x * k}};
+    return fx::wrap(signature_, {{"y", x * k}});
   }
 };
 

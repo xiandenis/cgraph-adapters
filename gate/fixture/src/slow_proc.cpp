@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -13,9 +14,9 @@ class SlowProcOp final : public cgraph::ProcessOperator {
   SlowProcOp() {
     op_id_ = "fx.slow_proc";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Fixture Process: sleep longer than timeout_s";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json in; sleeps 3s in execute.";
@@ -23,9 +24,10 @@ class SlowProcOp final : public cgraph::ProcessOperator {
     usage_.inspect = "Fails with timeout when timeout_s < 3.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext& ctx) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.slow_proc: missing input 'in'");
@@ -37,7 +39,7 @@ class SlowProcOp final : public cgraph::ProcessOperator {
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

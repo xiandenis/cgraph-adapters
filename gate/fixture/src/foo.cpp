@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -11,7 +12,7 @@ class FooWrapOp final : public cgraph::MemoryOperator {
   FooWrapOp() {
     op_id_ = "fx.foo_wrap";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
         cgraph::make_port("out", cgraph::PortKind::Value, "foo");
     capability_.summary = "Wrap json as plugin dtype foo";
@@ -21,14 +22,15 @@ class FooWrapOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out equals in; digest is canon(in).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.foo_wrap: missing input 'in'");
     }
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 
@@ -39,7 +41,7 @@ class FooUnwrapOp final : public cgraph::MemoryOperator {
     signature_.inputs["in"] =
         cgraph::make_port("in", cgraph::PortKind::Value, "foo");
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Unwrap plugin dtype foo to json";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire foo into in; read json from out.";
@@ -47,14 +49,15 @@ class FooUnwrapOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out equals in.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.foo_unwrap: missing input 'in'");
     }
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

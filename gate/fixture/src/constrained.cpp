@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "cgraph/validate.hpp"
 
 #include <memory>
@@ -12,7 +13,7 @@ class ConstrainedOp final : public cgraph::MemoryOperator {
   ConstrainedOp() {
     op_id_ = "fx.constrained";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec a;
     a.name = "a";
     a.dtype = "int";
@@ -46,10 +47,10 @@ class ConstrainedOp final : public cgraph::MemoryOperator {
     }
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    return {{"out", params}};
+    return fx::wrap(signature_, {{"out", params}});
   }
 };
 
@@ -58,7 +59,7 @@ class BadSeedDeclOp final : public cgraph::MemoryOperator {
   BadSeedDeclOp() {
     op_id_ = "fx.bad_seed_decl";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     // Intentionally no seed ParamSpec while EffectSpec requires seed_param.
     effect_.effect = cgraph::EffectClass::Stochastic;
     effect_.cache = cgraph::CachePolicy::Memoizable;
@@ -67,10 +68,10 @@ class BadSeedDeclOp final : public cgraph::MemoryOperator {
     cost_.cost_class = "cpu.tiny";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
-    return {{"out", 0}};
+    return fx::wrap(signature_, {{"out", 0}});
   }
 };
 

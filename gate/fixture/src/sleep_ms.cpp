@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <chrono>
 #include <memory>
@@ -12,9 +13,9 @@ class SleepMsOp final : public cgraph::MemoryOperator {
   SleepMsOp() {
     op_id_ = "fx.sleep_ms";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec ms;
     ms.name = "ms";
     ms.dtype = "int";
@@ -30,9 +31,10 @@ class SleepMsOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out is identical to in after delay.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.sleep_ms: missing input 'in'");
@@ -44,7 +46,7 @@ class SleepMsOp final : public cgraph::MemoryOperator {
     if (ms > 0) {
       std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

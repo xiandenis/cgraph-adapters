@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "math_nd_util.hpp"
 
 #include <cmath>
@@ -44,15 +45,15 @@ class GradientOp final : public cgraph::MemoryOperator {
   GradientOp() {
     op_id_ = "fx.gradient";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, "json");
+    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -70,9 +71,10 @@ class GradientOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Without A/b: grad = x for 0.5||x||^2.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.gradient");
     const Eigen::VectorXd x = math_nd::parse_vector(
         math_nd::require_input(inputs, "x", "fx.gradient"), "fx.gradient", "x");
@@ -91,7 +93,7 @@ class GradientOp final : public cgraph::MemoryOperator {
       Ap = &Astore;
       bp = &bstore;
     }
-    return {{"out", math_nd::make_vec_nd(grad_quadratic_l2(x, Ap, bp))}};
+    return fx::wrap(signature_, {{"out", math_nd::make_vec_nd(grad_quadratic_l2(x, Ap, bp))}});
   }
 };
 
@@ -100,19 +102,19 @@ class LineSearchOp final : public cgraph::MemoryOperator {
   LineSearchOp() {
     op_id_ = "fx.line_search";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["g"] =
-        cgraph::make_port("g", cgraph::PortKind::Value, "json");
+        cgraph::make_port("g", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["lr"] =
-        cgraph::make_port("lr", cgraph::PortKind::Value, "json");
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("lr", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, "json");
+    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -133,9 +135,10 @@ class LineSearchOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Backtrack: alpha *= 0.5 while loss increases.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.line_search");
     const Eigen::VectorXd x = math_nd::parse_vector(
         math_nd::require_input(inputs, "x", "fx.line_search"), "fx.line_search",
@@ -167,7 +170,7 @@ class LineSearchOp final : public cgraph::MemoryOperator {
       backtrack = params["backtrack"].get<bool>();
     }
     if (!backtrack) {
-      return {{"out", alpha}};
+      return fx::wrap(signature_, {{"out", alpha}});
     }
     const double f0 = loss_quadratic_l2(x, Ap, bp);
     for (int i = 0; i < 20; ++i) {
@@ -178,7 +181,7 @@ class LineSearchOp final : public cgraph::MemoryOperator {
       }
       alpha *= 0.5;
     }
-    return {{"out", alpha}};
+    return fx::wrap(signature_, {{"out", alpha}});
   }
 };
 
@@ -187,16 +190,16 @@ class UpdateOp final : public cgraph::MemoryOperator {
   UpdateOp() {
     op_id_ = "fx.update";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["g"] =
-        cgraph::make_port("g", cgraph::PortKind::Value, "json");
+        cgraph::make_port("g", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["alpha"] =
-        cgraph::make_port("alpha", cgraph::PortKind::Value, "json");
-    auto lr = cgraph::make_port("lr", cgraph::PortKind::Value, "json");
+        cgraph::make_port("alpha", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto lr = cgraph::make_port("lr", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     lr.optional = true;
     signature_.inputs["lr"] = std::move(lr);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "GD step: x_new = x - alpha * g";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -205,9 +208,10 @@ class UpdateOp final : public cgraph::MemoryOperator {
     usage_.inspect = "alpha preferred; lr accepted as alias.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::VectorXd x = math_nd::parse_vector(
         math_nd::require_input(inputs, "x", "fx.update"), "fx.update", "x");
     const Eigen::VectorXd g = math_nd::parse_vector(
@@ -218,7 +222,7 @@ class UpdateOp final : public cgraph::MemoryOperator {
     if (x.size() != g.size()) {
       throw std::invalid_argument("fx.update: x and g size mismatch");
     }
-    return {{"out", math_nd::make_vec_nd(x - alpha * g)}};
+    return fx::wrap(signature_, {{"out", math_nd::make_vec_nd(x - alpha * g)}});
   }
 };
 
@@ -227,15 +231,15 @@ class LossCalcOp final : public cgraph::MemoryOperator {
   LossCalcOp() {
     op_id_ = "fx.loss_calc";
     signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, "json");
+    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -251,9 +255,10 @@ class LossCalcOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Without A/b: 0.5||x||^2.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.loss_calc");
     const Eigen::VectorXd x = math_nd::parse_vector(
         math_nd::require_input(inputs, "x", "fx.loss_calc"), "fx.loss_calc",
@@ -270,7 +275,7 @@ class LossCalcOp final : public cgraph::MemoryOperator {
       Ap = &Astore;
       bp = &bstore;
     }
-    return {{"out", loss_quadratic_l2(x, Ap, bp)}};
+    return fx::wrap(signature_, {{"out", loss_quadratic_l2(x, Ap, bp)}});
   }
 };
 

@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <cstdint>
 #include <cstddef>
@@ -80,11 +81,11 @@ class InspectOp final : public cgraph::MemoryOperator {
   InspectOp() {
     op_id_ = "fx.inspect";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["summary"] =
-        cgraph::make_port("summary", cgraph::PortKind::Value, "json");
+        cgraph::make_port("summary", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
 
     cgraph::ParamSpec label;
     label.name = "label";
@@ -117,9 +118,10 @@ class InspectOp final : public cgraph::MemoryOperator {
     usage_.inspect = "summary is structured preview; out equals in.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.inspect: missing input 'in'");
@@ -148,7 +150,7 @@ class InspectOp final : public cgraph::MemoryOperator {
       std::cout << "[" << label << "] "
                 << summary["preview_text"].get<std::string>() << std::endl;
     }
-    return {{"out", it->second}, {"summary", summary}};
+    return fx::wrap(signature_, {{"out", it->second}, {"summary", summary}});
   }
 };
 

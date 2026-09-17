@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -40,11 +41,11 @@ class Filter2dOp final : public cgraph::MemoryOperator {
   Filter2dOp() {
     op_id_ = "fx.filter2d";
     signature_.inputs["image"] =
-        cgraph::make_port("image", cgraph::PortKind::Value, "json");
+        cgraph::make_port("image", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["kernel"] =
-        cgraph::make_port("kernel", cgraph::PortKind::Value, "json");
+        cgraph::make_port("kernel", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "P0 fused 1x1 conv (Filter2D)";
     capability_.tags = {"conv", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -53,12 +54,13 @@ class Filter2dOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out.data[i] = image.data[i] * kernel.data[0].";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json image = require_nd(inputs, "image", "fx.filter2d");
     const nlohmann::json kernel = require_nd(inputs, "kernel", "fx.filter2d");
-    return {{"out", scaled_copy(image, kernel_scale(kernel))}};
+    return fx::wrap(signature_, {{"out", scaled_copy(image, kernel_scale(kernel))}});
   }
 };
 
@@ -67,9 +69,9 @@ class PadOp final : public cgraph::MemoryOperator {
   PadOp() {
     op_id_ = "fx.pad";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec ph;
     ph.name = "pad_h";
     ph.dtype = "int";
@@ -86,9 +88,10 @@ class PadOp final : public cgraph::MemoryOperator {
     usage_.inspect = "P0 only implements pad=0 copy.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json image = require_nd(inputs, "in", "fx.pad");
     int pad_h = 0;
     int pad_w = 0;
@@ -103,7 +106,7 @@ class PadOp final : public cgraph::MemoryOperator {
     if (pad_h != 0 || pad_w != 0) {
       throw std::invalid_argument("fx.pad: P0 only supports pad_h=pad_w=0");
     }
-    return {{"out", image}};
+    return fx::wrap(signature_, {{"out", image}});
   }
 };
 
@@ -112,9 +115,9 @@ class Im2ColOp final : public cgraph::MemoryOperator {
   Im2ColOp() {
     op_id_ = "fx.im2col";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "P0 im2col for 1x1 kernel";
     capability_.tags = {"conv", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -123,14 +126,15 @@ class Im2ColOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Does not depend on kernel.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json image = require_nd(inputs, "in", "fx.im2col");
     nlohmann::json out = image;
     const auto n = image.at("data").size();
     out["shape"] = nlohmann::json::array({static_cast<int>(n), 1});
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 
@@ -139,9 +143,9 @@ class FlattenKernelOp final : public cgraph::MemoryOperator {
   FlattenKernelOp() {
     op_id_ = "fx.flatten_kernel";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Flatten kernel ndarray";
     capability_.tags = {"conv", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -150,14 +154,15 @@ class FlattenKernelOp final : public cgraph::MemoryOperator {
     usage_.inspect = "shape [K,1].";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json kernel = require_nd(inputs, "in", "fx.flatten_kernel");
     nlohmann::json out = kernel;
     const auto n = kernel.at("data").size();
     out["shape"] = nlohmann::json::array({static_cast<int>(n), 1});
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 
@@ -166,11 +171,11 @@ class GemmOp final : public cgraph::MemoryOperator {
   GemmOp() {
     op_id_ = "fx.gemm";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "P0 GEMM: column * scalar kernel";
     capability_.tags = {"conv", "math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -179,14 +184,15 @@ class GemmOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out.data[i] = a.data[i] * b.data[0].";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json a = require_nd(inputs, "a", "fx.gemm");
     const nlohmann::json b = require_nd(inputs, "b", "fx.gemm");
     nlohmann::json out = a;
     out["data"] = scaled_copy(a, kernel_scale(b)).at("data");
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 
@@ -195,9 +201,9 @@ class ReshapeOp final : public cgraph::MemoryOperator {
   ReshapeOp() {
     op_id_ = "fx.reshape";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec shape;
     shape.name = "shape";
     shape.dtype = "json";
@@ -210,15 +216,16 @@ class ReshapeOp final : public cgraph::MemoryOperator {
     usage_.inspect = "data bytes unchanged.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     nlohmann::json image = require_nd(inputs, "in", "fx.reshape");
     if (!params.is_object() || !params.contains("shape") || !params["shape"].is_array()) {
       throw std::invalid_argument("fx.reshape: params.shape required");
     }
     image["shape"] = params["shape"];
-    return {{"out", std::move(image)}};
+    return fx::wrap(signature_, {{"out", std::move(image)}});
   }
 };
 
@@ -227,11 +234,11 @@ class MulOp final : public cgraph::MemoryOperator {
   MulOp() {
     op_id_ = "fx.mul";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Scalar mul of numbers, or ndarray * kernel";
     capability_.tags = {"math", "conv", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -240,20 +247,21 @@ class MulOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Scalar: out=a*b. Ndarray: same digest as 1x1 Filter2D.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto ait = inputs.find("a");
     const auto bit = inputs.find("b");
     if (ait == inputs.end() || bit == inputs.end()) {
       throw std::invalid_argument("fx.mul: missing input 'a' or 'b'");
     }
     if (ait->second.is_number() && bit->second.is_number()) {
-      return {{"out", ait->second.get<double>() * bit->second.get<double>()}};
+      return fx::wrap(signature_, {{"out", ait->second.get<double>() * bit->second.get<double>()}});
     }
     const nlohmann::json a = require_nd(inputs, "a", "fx.mul");
     const nlohmann::json b = require_nd(inputs, "b", "fx.mul");
-    return {{"out", scaled_copy(a, kernel_scale(b))}};
+    return fx::wrap(signature_, {{"out", scaled_copy(a, kernel_scale(b))}});
   }
 };
 

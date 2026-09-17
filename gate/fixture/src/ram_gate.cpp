@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 
@@ -10,9 +11,9 @@ class RamGateOp final : public cgraph::MemoryOperator {
   RamGateOp() {
     op_id_ = "fx.ram_gate";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Fixture: RAM gate target (echo)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire json in; out copies in.";
@@ -20,14 +21,15 @@ class RamGateOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Identity passthrough.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.ram_gate: missing input 'in'");
     }
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

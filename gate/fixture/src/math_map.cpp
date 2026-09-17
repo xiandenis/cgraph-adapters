@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "math_nd_util.hpp"
 
 #include <cmath>
@@ -107,11 +108,11 @@ class SplitGridOp final : public cgraph::MemoryOperator {
   SplitGridOp() {
     op_id_ = "fx.split_grid";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["grid_shape"] =
-        cgraph::make_port("grid_shape", cgraph::PortKind::Value, "json");
+        cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec th;
     th.name = "tile_h";
     th.dtype = "int";
@@ -134,9 +135,10 @@ class SplitGridOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Non-divisible dims throw (no partial tiles).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd M = math_nd::parse_matrix(
         math_nd::require_input(inputs, "in", "fx.split_grid"), "fx.split_grid",
         "in");
@@ -158,8 +160,8 @@ class SplitGridOp final : public cgraph::MemoryOperator {
         patches.push_back(math_nd::make_nd(tile));
       }
     }
-    return {{"out", std::move(patches)},
-            {"grid_shape", nlohmann::json::array({gh, gw})}};
+    return fx::wrap(signature_, {{"out", std::move(patches)},
+            {"grid_shape", nlohmann::json::array({gh, gw})}});
   }
 };
 
@@ -168,15 +170,15 @@ class MergeGridOp final : public cgraph::MemoryOperator {
   MergeGridOp() {
     op_id_ = "fx.merge_grid";
     signature_.inputs["chunks"] =
-        cgraph::make_port("chunks", cgraph::PortKind::Value, "json");
-    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     in_alias.optional = true;
     signature_.inputs["in"] = std::move(in_alias);
-    auto gs = cgraph::make_port("grid_shape", cgraph::PortKind::Value, "json");
+    auto gs = cgraph::make_port("grid_shape", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     gs.optional = true;
     signature_.inputs["grid_shape"] = std::move(gs);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec rows;
     rows.name = "rows";
     rows.dtype = "int";
@@ -192,9 +194,10 @@ class MergeGridOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Row-major tiles; null tiles become NaN blocks if present.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& chunks_j = math_nd::require_input_alias(
         inputs, "chunks", "in", "fx.merge_grid");
     if (!chunks_j.is_array() || chunks_j.empty()) {
@@ -257,7 +260,7 @@ class MergeGridOp final : public cgraph::MemoryOperator {
         out.block(bi * tile_h, bj * tile_w, tile_h, tile_w) = tile;
       }
     }
-    return {{"out", math_nd::make_nd(out)}};
+    return fx::wrap(signature_, {{"out", math_nd::make_nd(out)}});
   }
 };
 
@@ -266,18 +269,18 @@ class MapChunkOp final : public cgraph::MemoryOperator {
   MapChunkOp() {
     op_id_ = "fx.map_chunk";
     signature_.inputs["items"] =
-        cgraph::make_port("items", cgraph::PortKind::Value, "json");
-    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, "json");
+        cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     chunks.optional = true;
     signature_.inputs["chunks"] = std::move(chunks);
-    auto kernel = cgraph::make_port("kernel", cgraph::PortKind::Value, "json");
+    auto kernel = cgraph::make_port("kernel", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     kernel.optional = true;
     signature_.inputs["kernel"] = std::move(kernel);
-    auto shared = cgraph::make_port("shared", cgraph::PortKind::Value, "json");
+    auto shared = cgraph::make_port("shared", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     shared.optional = true;
     signature_.inputs["shared"] = std::move(shared);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec body;
     body.name = "body";
     body.dtype = "string";
@@ -302,9 +305,10 @@ class MapChunkOp final : public cgraph::MemoryOperator {
         "Im2ColMatMul P0: out_i = patch_i * kernel(0,0) (not full im2col).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& items = math_nd::require_input_alias(
         inputs, "items", "chunks", "fx.map_chunk");
     if (!items.is_array()) {
@@ -334,7 +338,7 @@ class MapChunkOp final : public cgraph::MemoryOperator {
         out.push_back(nlohmann::json{{"error", ex.what()}, {"index", i}});
       }
     }
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 

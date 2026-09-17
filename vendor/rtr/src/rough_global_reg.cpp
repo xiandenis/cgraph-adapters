@@ -36,15 +36,10 @@ class RoughGlobalRegOp final : public cgraph::MemoryOperator {
  public:
   RoughGlobalRegOp() {
     op_id_ = "rtr.rough_global_reg";
-    signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Artifact, "file");
-    signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Artifact, "file");
-    auto guess = cgraph::make_port("guess", cgraph::PortKind::Value, "json");
-    guess.optional = true;
-    signature_.inputs["guess"] = std::move(guess);
-    signature_.outputs["align"] =
-        cgraph::make_port("align", cgraph::PortKind::Value, "json");
+    signature_.inputs["src"] = cloud_port("src");
+    signature_.inputs["tgt"] = cloud_port("tgt");
+    signature_.inputs["guess"] = matrix_port("guess", true);
+    signature_.outputs["align"] = align_port("align");
     cgraph::ParamSpec res;
     res.name = "resolution";
     res.dtype = "float";
@@ -73,8 +68,8 @@ class RoughGlobalRegOp final : public cgraph::MemoryOperator {
                     "点云须为 RTR 可读文件（如 PCD）"};
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json& params,
       const cgraph::ExecContext&) const override {
     if (!inputs.count("src") || !inputs.count("tgt")) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
@@ -93,7 +88,7 @@ class RoughGlobalRegOp final : public cgraph::MemoryOperator {
     Ddx::RoughGlobalReg algo;
     bool ok = false;
     if (inputs.count("guess")) {
-      const Eigen::Matrix4d guess = matrix4d_from_json(inputs.at("guess"));
+      const Eigen::Matrix4d guess = matrix_from_payload(inputs.at("guess").payload);
       ok = algo.run(src.string(), tgt.string(), resolution, guess, iter_number,
                     use_compass);
     } else {
@@ -103,7 +98,7 @@ class RoughGlobalRegOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.rough_global_reg: run() failed");
     }
-    return {{"align", align_result_to_json(algo.getAlignResult())}};
+    return {{"align", align_result_to_data(algo.getAlignResult())}};
   }
 };
 

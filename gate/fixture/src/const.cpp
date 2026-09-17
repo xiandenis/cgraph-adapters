@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 
@@ -10,7 +11,7 @@ class ConstOp final : public cgraph::MemoryOperator {
   ConstOp() {
     op_id_ = "fx.const";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
@@ -23,14 +24,14 @@ class ConstOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out equals params.value byte-for-byte after canon.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
     nlohmann::json value = nullptr;
     if (params.is_object() && params.contains("value")) {
       value = params["value"];
     }
-    return {{"out", std::move(value)}};
+    return fx::wrap(signature_, {{"out", std::move(value)}});
   }
 };
 

@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -11,9 +12,9 @@ class CondGt0Op final : public cgraph::MemoryOperator {
   CondGt0Op() {
     op_id_ = "fx.cond_gt0";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, "json");
+        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Predicate: pred = (in > 0)";
     capability_.tags = {"math", "control", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -22,14 +23,15 @@ class CondGt0Op final : public cgraph::MemoryOperator {
     usage_.inspect = "pred true iff in > 0.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end() || !it->second.is_number()) {
       throw std::invalid_argument("fx.cond_gt0: missing numeric 'in'");
     }
-    return {{"pred", it->second.get<double>() > 0.0}};
+    return fx::wrap(signature_, {{"pred", it->second.get<double>() > 0.0}});
   }
 };
 
@@ -38,13 +40,13 @@ class BranchMergeOp final : public cgraph::MemoryOperator {
   BranchMergeOp() {
     op_id_ = "fx.branch_merge";
     signature_.inputs["true"] =
-        cgraph::make_port("true", cgraph::PortKind::Value, "json");
+        cgraph::make_port("true", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["false"] =
-        cgraph::make_port("false", cgraph::PortKind::Value, "json");
+        cgraph::make_port("false", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, "json");
+        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Select true/false branch by pred";
     capability_.tags = {"math", "control", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -54,9 +56,10 @@ class BranchMergeOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out = pred ? true : false.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto pit = inputs.find("pred");
     const auto tit = inputs.find("true");
     const auto fit = inputs.find("false");
@@ -66,7 +69,7 @@ class BranchMergeOp final : public cgraph::MemoryOperator {
     if (tit == inputs.end() || fit == inputs.end()) {
       throw std::invalid_argument("fx.branch_merge: missing true/false");
     }
-    return {{"out", pit->second.get<bool>() ? tit->second : fit->second}};
+    return fx::wrap(signature_, {{"out", pit->second.get<bool>() ? tit->second : fit->second}});
   }
 };
 

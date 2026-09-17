@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -16,11 +17,11 @@ class CoarsePoseOp final : public cgraph::MemoryOperator {
   CoarsePoseOp() {
     op_id_ = "fx.coarse_pose";
     signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Value, "json");
+        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Value, "json");
+        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["T"] =
-        cgraph::make_port("T", cgraph::PortKind::Value, "json");
+        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "P0 unit-T pose stub (needs both src and tgt)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Wire src and tgt; read T (identity).";
@@ -28,13 +29,14 @@ class CoarsePoseOp final : public cgraph::MemoryOperator {
     usage_.inspect = "T is identity rigid transform. Not a real registrar.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     if (inputs.find("src") == inputs.end() || inputs.find("tgt") == inputs.end()) {
       throw std::invalid_argument("fx.coarse_pose: missing src or tgt");
     }
-    return {{"T", kTUnit}};
+    return fx::wrap(signature_, {{"T", kTUnit}});
   }
 };
 
@@ -43,13 +45,13 @@ class CoarseRegOp final : public cgraph::MemoryOperator {
   CoarseRegOp() {
     op_id_ = "fx.coarse_reg";
     signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Value, "json");
+        cgraph::make_port("src", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Value, "json");
+        cgraph::make_port("tgt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["T"] =
-        cgraph::make_port("T", cgraph::PortKind::Value, "json");
+        cgraph::make_port("T", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["inliers"] =
-        cgraph::make_port("inliers", cgraph::PortKind::Value, "json");
+        cgraph::make_port("inliers", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "P0 black-box coarse registration (unit T)";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Same Signature as algo.coarse_reg.v1 Model.";
@@ -57,13 +59,14 @@ class CoarseRegOp final : public cgraph::MemoryOperator {
     usage_.inspect = "T is identity; inliers is [].";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     if (inputs.find("src") == inputs.end() || inputs.find("tgt") == inputs.end()) {
       throw std::invalid_argument("fx.coarse_reg: missing src or tgt");
     }
-    return {{"T", kTUnit}, {"inliers", nlohmann::json::array()}};
+    return fx::wrap(signature_, {{"T", kTUnit}, {"inliers", nlohmann::json::array()}});
   }
 };
 

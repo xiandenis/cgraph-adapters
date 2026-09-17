@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <random>
@@ -12,7 +13,7 @@ class RandOp final : public cgraph::MemoryOperator {
   RandOp() {
     op_id_ = "fx.rand";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec seed;
     seed.name = "seed";
     seed.dtype = "int";
@@ -36,8 +37,8 @@ class RandOp final : public cgraph::MemoryOperator {
     effect_.seed_param = "seed";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
     unsigned seed = 0;
     bool have_seed = false;
@@ -57,7 +58,7 @@ class RandOp final : public cgraph::MemoryOperator {
     }
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> dist(0.0, 1.0);
-    return {{"out", dist(rng)}};
+    return fx::wrap(signature_, {{"out", dist(rng)}});
   }
 };
 

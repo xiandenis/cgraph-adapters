@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "math_nd_util.hpp"
 
 #include <cmath>
@@ -14,16 +15,16 @@ class SvdOp final : public cgraph::MemoryOperator {
   SvdOp() {
     op_id_ = "fx.svd";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
-    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     in_alias.optional = true;
     signature_.inputs["in"] = std::move(in_alias);
     signature_.outputs["U"] =
-        cgraph::make_port("U", cgraph::PortKind::Value, "json");
+        cgraph::make_port("U", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["S"] =
-        cgraph::make_port("S", cgraph::PortKind::Value, "json");
+        cgraph::make_port("S", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["Vt"] =
-        cgraph::make_port("Vt", cgraph::PortKind::Value, "json");
+        cgraph::make_port("Vt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Thin SVD: A = U * diag(S) * Vt (all outs always)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -32,9 +33,10 @@ class SvdOp final : public cgraph::MemoryOperator {
     usage_.inspect = "S is 1D singular values descending; Vt is V^T.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& a_json =
         math_nd::require_input_alias(inputs, "A", "in", "fx.svd");
     const Eigen::MatrixXd A = math_nd::parse_matrix(a_json, "fx.svd", "A");
@@ -43,9 +45,9 @@ class SvdOp final : public cgraph::MemoryOperator {
     const Eigen::MatrixXd U = svd.matrixU();
     const Eigen::VectorXd S = svd.singularValues();
     const Eigen::MatrixXd Vt = svd.matrixV().transpose();
-    return {{"U", math_nd::make_nd(U)},
+    return fx::wrap(signature_, {{"U", math_nd::make_nd(U)},
             {"S", math_nd::make_vec_nd(S)},
-            {"Vt", math_nd::make_nd(Vt)}};
+            {"Vt", math_nd::make_nd(Vt)}});
   }
 };
 
@@ -54,11 +56,11 @@ class SliceTopKOp final : public cgraph::MemoryOperator {
   SliceTopKOp() {
     op_id_ = "fx.slice_topk";
     signature_.inputs["mat"] =
-        cgraph::make_port("mat", cgraph::PortKind::Value, "json");
+        cgraph::make_port("mat", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["k"] =
-        cgraph::make_port("k", cgraph::PortKind::Value, "json");
+        cgraph::make_port("k", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Take first k rows of a matrix (e.g. Vt top-k)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -67,9 +69,10 @@ class SliceTopKOp final : public cgraph::MemoryOperator {
     usage_.inspect = "math_07: SliceTopK on Vt keeps leading principal rows.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd mat =
         math_nd::parse_matrix(math_nd::require_input(inputs, "mat", "fx.slice_topk"),
                               "fx.slice_topk", "mat");
@@ -79,7 +82,7 @@ class SliceTopKOp final : public cgraph::MemoryOperator {
     if (k > mat.rows()) {
       throw std::invalid_argument("fx.slice_topk: k exceeds matrix rows");
     }
-    return {{"out", math_nd::make_nd(mat.topRows(k))}};
+    return fx::wrap(signature_, {{"out", math_nd::make_nd(mat.topRows(k))}});
   }
 };
 
@@ -88,14 +91,14 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
   VarianceRatioOp() {
     op_id_ = "fx.variance_ratio";
     signature_.inputs["s"] =
-        cgraph::make_port("s", cgraph::PortKind::Value, "json");
-    auto S_alias = cgraph::make_port("S", cgraph::PortKind::Value, "json");
+        cgraph::make_port("s", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto S_alias = cgraph::make_port("S", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     S_alias.optional = true;
     signature_.inputs["S"] = std::move(S_alias);
     signature_.inputs["k"] =
-        cgraph::make_port("k", cgraph::PortKind::Value, "json");
+        cgraph::make_port("k", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Explained variance ratio from singular values";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -104,9 +107,10 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Uses squared singular values as variance proxy.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& s_json =
         math_nd::require_input_alias(inputs, "s", "S", "fx.variance_ratio");
     const Eigen::VectorXd s =
@@ -129,7 +133,7 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
     if (!(den > 0.0) || !std::isfinite(den)) {
       throw std::invalid_argument("fx.variance_ratio: zero or non-finite |S|");
     }
-    return {{"out", num / den}};
+    return fx::wrap(signature_, {{"out", num / den}});
   }
 };
 

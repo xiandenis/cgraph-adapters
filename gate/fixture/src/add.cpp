@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -19,11 +20,11 @@ class AddOp final : public cgraph::MemoryOperator {
   AddOp() {
     op_id_ = "fx.add";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["sum"] =
-        cgraph::make_port("sum", cgraph::PortKind::Value, "json");
+        cgraph::make_port("sum", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Add two JSON numbers (int64 path or float)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -32,9 +33,10 @@ class AddOp final : public cgraph::MemoryOperator {
     usage_.inspect = "sum = a + b.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto ait = inputs.find("a");
     const auto bit = inputs.find("b");
     if (ait == inputs.end() || bit == inputs.end()) {
@@ -49,9 +51,9 @@ class AddOp final : public cgraph::MemoryOperator {
       if (add_would_overflow(a, b)) {
         throw std::invalid_argument("fx.add: int64 overflow");
       }
-      return {{"sum", a + b}};
+      return fx::wrap(signature_, {{"sum", a + b}});
     }
-    return {{"sum", ait->second.get<double>() + bit->second.get<double>()}};
+    return fx::wrap(signature_, {{"sum", ait->second.get<double>() + bit->second.get<double>()}});
   }
 };
 

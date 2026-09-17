@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <Eigen/Core>
 #include <Eigen/LU>
@@ -163,7 +164,7 @@ class ConstMatrixOp final : public cgraph::MemoryOperator {
   ConstMatrixOp() {
     op_id_ = "fx.const_matrix";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
@@ -178,11 +179,11 @@ class ConstMatrixOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Output is always nested lists (normalized).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext&) const override {
     const auto& value = require_param_value(params, "fx.const_matrix");
-    return {{"out", matrix_to_json(parse_matrix(value, "fx.const_matrix"))}};
+    return fx::wrap(signature_, {{"out", matrix_to_json(parse_matrix(value, "fx.const_matrix"))}});
   }
 };
 
@@ -191,7 +192,7 @@ class ConstVectorOp final : public cgraph::MemoryOperator {
   ConstVectorOp() {
     op_id_ = "fx.const_vector";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
@@ -205,11 +206,11 @@ class ConstVectorOp final : public cgraph::MemoryOperator {
     usage_.inspect = "JSON convention: nested lists (1-D for vectors).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext&) const override {
     const auto& value = require_param_value(params, "fx.const_vector");
-    return {{"out", vector_to_json(parse_vector(value, "fx.const_vector"))}};
+    return fx::wrap(signature_, {{"out", vector_to_json(parse_vector(value, "fx.const_vector"))}});
   }
 };
 
@@ -218,7 +219,7 @@ class ConstVectorArrayOp final : public cgraph::MemoryOperator {
   ConstVectorArrayOp() {
     op_id_ = "fx.const_vector_array";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "json";
@@ -232,8 +233,8 @@ class ConstVectorArrayOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Each element validated as a 1-D vector.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext&) const override {
     const auto& value = require_param_value(params, "fx.const_vector_array");
     if (!value.is_array() || value.empty()) {
@@ -250,7 +251,7 @@ class ConstVectorArrayOp final : public cgraph::MemoryOperator {
       }
       out.push_back(vector_to_json(v));
     }
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 
@@ -259,11 +260,11 @@ class MatVecOp final : public cgraph::MemoryOperator {
   MatVecOp() {
     op_id_ = "fx.matvec";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["v"] =
-        cgraph::make_port("v", cgraph::PortKind::Value, "json");
+        cgraph::make_port("v", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Matrix-vector product: out = A * v";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -272,15 +273,16 @@ class MatVecOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Requires A.cols() == v.size().";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = parse_matrix(require_input(inputs, "A", "fx.matvec"), "fx.matvec");
     const Eigen::VectorXd v = parse_vector(require_input(inputs, "v", "fx.matvec"), "fx.matvec");
     if (A.cols() != v.size()) {
       fail("fx.matvec", "A.cols must equal v.length");
     }
-    return {{"out", vector_to_json(A * v)}};
+    return fx::wrap(signature_, {{"out", vector_to_json(A * v)}});
   }
 };
 
@@ -289,11 +291,11 @@ class VAddOp final : public cgraph::MemoryOperator {
   VAddOp() {
     op_id_ = "fx.vadd";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Vector add: out = a + b";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -302,15 +304,16 @@ class VAddOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Lengths must match.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::VectorXd a = parse_vector(require_input(inputs, "a", "fx.vadd"), "fx.vadd");
     const Eigen::VectorXd b = parse_vector(require_input(inputs, "b", "fx.vadd"), "fx.vadd");
     if (a.size() != b.size()) {
       fail("fx.vadd", "vector lengths must match");
     }
-    return {{"out", vector_to_json(a + b)}};
+    return fx::wrap(signature_, {{"out", vector_to_json(a + b)}});
   }
 };
 
@@ -319,11 +322,11 @@ class VSubOp final : public cgraph::MemoryOperator {
   VSubOp() {
     op_id_ = "fx.vsub";
     signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, "json");
+        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Vector subtract: out = a - b";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -332,15 +335,16 @@ class VSubOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Lengths must match.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::VectorXd a = parse_vector(require_input(inputs, "a", "fx.vsub"), "fx.vsub");
     const Eigen::VectorXd b = parse_vector(require_input(inputs, "b", "fx.vsub"), "fx.vsub");
     if (a.size() != b.size()) {
       fail("fx.vsub", "vector lengths must match");
     }
-    return {{"out", vector_to_json(a - b)}};
+    return fx::wrap(signature_, {{"out", vector_to_json(a - b)}});
   }
 };
 
@@ -349,9 +353,9 @@ class L2SqOp final : public cgraph::MemoryOperator {
   L2SqOp() {
     op_id_ = "fx.l2sq";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Squared L2 norm of a vector";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -360,11 +364,12 @@ class L2SqOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out = sum_i in[i]^2.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::VectorXd v = parse_vector(require_input(inputs, "in", "fx.l2sq"), "fx.l2sq");
-    return {{"out", v.squaredNorm()}};
+    return fx::wrap(signature_, {{"out", v.squaredNorm()}});
   }
 };
 
@@ -373,9 +378,9 @@ class SumReduceOp final : public cgraph::MemoryOperator {
   SumReduceOp() {
     op_id_ = "fx.sum_reduce";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Sum a list of scalars";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -384,12 +389,13 @@ class SumReduceOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Also accepts a single number (identity).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto& in = require_input(inputs, "in", "fx.sum_reduce");
     if (in.is_number()) {
-      return {{"out", in.get<double>()}};
+      return fx::wrap(signature_, {{"out", in.get<double>()}});
     }
     if (!in.is_array()) {
       fail("fx.sum_reduce", "in must be a number or array of numbers");
@@ -401,7 +407,7 @@ class SumReduceOp final : public cgraph::MemoryOperator {
       }
       s += x.get<double>();
     }
-    return {{"out", s}};
+    return fx::wrap(signature_, {{"out", s}});
   }
 };
 
@@ -410,11 +416,11 @@ class QuadraticFormOp final : public cgraph::MemoryOperator {
   QuadraticFormOp() {
     op_id_ = "fx.quadratic_form";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["p"] =
-        cgraph::make_port("p", cgraph::PortKind::Value, "json");
+        cgraph::make_port("p", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Quadratic form: out = p^T A p";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -423,9 +429,10 @@ class QuadraticFormOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Requires square A with A.rows() == p.size().";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A =
         parse_matrix(require_input(inputs, "A", "fx.quadratic_form"), "fx.quadratic_form");
     const Eigen::VectorXd p =
@@ -433,7 +440,7 @@ class QuadraticFormOp final : public cgraph::MemoryOperator {
     if (A.rows() != A.cols() || A.rows() != p.size()) {
       fail("fx.quadratic_form", "A must be square with size == p.length");
     }
-    return {{"out", p.dot(A * p)}};
+    return fx::wrap(signature_, {{"out", p.dot(A * p)}});
   }
 };
 
@@ -442,9 +449,9 @@ class DetOp final : public cgraph::MemoryOperator {
   DetOp() {
     op_id_ = "fx.det";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Determinant of a square matrix";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -453,14 +460,15 @@ class DetOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Requires square matrix (2x2+).";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = parse_matrix(require_input(inputs, "in", "fx.det"), "fx.det");
     if (A.rows() != A.cols() || A.rows() < 1) {
       fail("fx.det", "matrix must be square");
     }
-    return {{"out", A.determinant()}};
+    return fx::wrap(signature_, {{"out", A.determinant()}});
   }
 };
 
@@ -469,9 +477,9 @@ class TraceOp final : public cgraph::MemoryOperator {
   TraceOp() {
     op_id_ = "fx.trace";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Trace of a square matrix";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -480,14 +488,15 @@ class TraceOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out = sum of diagonal.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = parse_matrix(require_input(inputs, "in", "fx.trace"), "fx.trace");
     if (A.rows() != A.cols() || A.rows() < 1) {
       fail("fx.trace", "matrix must be square");
     }
-    return {{"out", A.trace()}};
+    return fx::wrap(signature_, {{"out", A.trace()}});
   }
 };
 
@@ -496,9 +505,9 @@ class TransposeOp final : public cgraph::MemoryOperator {
   TransposeOp() {
     op_id_ = "fx.transpose";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Matrix transpose";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -507,12 +516,13 @@ class TransposeOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out[i][j] = in[j][i].";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A =
         parse_matrix(require_input(inputs, "in", "fx.transpose"), "fx.transpose");
-    return {{"out", matrix_to_json(A.transpose())}};
+    return fx::wrap(signature_, {{"out", matrix_to_json(A.transpose())}});
   }
 };
 

@@ -30,15 +30,10 @@ class FineRegistrationOp final : public cgraph::MemoryOperator {
  public:
   FineRegistrationOp() {
     op_id_ = "rtr.fine_registration";
-    signature_.inputs["src"] =
-        cgraph::make_port("src", cgraph::PortKind::Artifact, "file");
-    signature_.inputs["tgt"] =
-        cgraph::make_port("tgt", cgraph::PortKind::Artifact, "file");
-    auto guess = cgraph::make_port("guess", cgraph::PortKind::Value, "json");
-    guess.optional = true;
-    signature_.inputs["guess"] = std::move(guess);
-    signature_.outputs["align"] =
-        cgraph::make_port("align", cgraph::PortKind::Value, "json");
+    signature_.inputs["src"] = cloud_port("src");
+    signature_.inputs["tgt"] = cloud_port("tgt");
+    signature_.inputs["guess"] = matrix_port("guess", true);
+    signature_.outputs["align"] = align_port("align");
     auto add_f = [&](const char* name, double def, const char* doc) {
       cgraph::ParamSpec p;
       p.name = name;
@@ -70,8 +65,8 @@ class FineRegistrationOp final : public cgraph::MemoryOperator {
         "RMS 报告。初值缺省为单位阵，因此可单独使用。输出相对矩阵为源→目标。";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json& params,
       const cgraph::ExecContext&) const override {
     if (!inputs.count("src") || !inputs.count("tgt")) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
@@ -86,7 +81,7 @@ class FineRegistrationOp final : public cgraph::MemoryOperator {
     }
     Eigen::Matrix4d guess = Eigen::Matrix4d::Identity();
     if (inputs.count("guess")) {
-      guess = matrix4d_from_json(inputs.at("guess"));
+      guess = matrix_from_payload(inputs.at("guess").payload);
     }
     Ddx::FineRegistration algo;
     algo.setMaxCorrespondenceDistance(
@@ -118,7 +113,7 @@ class FineRegistrationOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.fine_registration: run() failed");
     }
-    return {{"align", align_result_to_json(algo.getAlignResult())}};
+    return {{"align", align_result_to_data(algo.getAlignResult())}};
   }
 };
 

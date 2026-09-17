@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "math_nd_util.hpp"
 
 #include <cmath>
@@ -19,14 +20,14 @@ class CondEstimateOp final : public cgraph::MemoryOperator {
   CondEstimateOp() {
     op_id_ = "fx.cond_estimate";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
-    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     in_alias.optional = true;
     signature_.inputs["in"] = std::move(in_alias);
     signature_.outputs["CondNum"] =
-        cgraph::make_port("CondNum", cgraph::PortKind::Value, "json");
+        cgraph::make_port("CondNum", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["IsWell"] =
-        cgraph::make_port("IsWell", cgraph::PortKind::Value, "json");
+        cgraph::make_port("IsWell", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec thr;
     thr.name = "threshold";
     thr.dtype = "number";
@@ -41,9 +42,10 @@ class CondEstimateOp final : public cgraph::MemoryOperator {
     usage_.inspect = "cond = sigma_max / sigma_min.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& a_json =
         math_nd::require_input_alias(inputs, "A", "in", "fx.cond_estimate");
     const Eigen::MatrixXd A =
@@ -61,7 +63,7 @@ class CondEstimateOp final : public cgraph::MemoryOperator {
     const double cond = smax / smin;
     const double thr = math_nd::param_number(params, "threshold", 10000.0);
     const bool well = cond < thr;
-    return {{"CondNum", cond}, {"IsWell", well}};
+    return fx::wrap(signature_, {{"CondNum", cond}, {"IsWell", well}});
   }
 };
 
@@ -70,12 +72,12 @@ class ConditionRouterOp final : public cgraph::MemoryOperator {
   ConditionRouterOp() {
     op_id_ = "fx.condition_router";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
-    auto pred = cgraph::make_port("pred", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
+    auto pred = cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     pred.optional = true;
     signature_.inputs["pred"] = std::move(pred);
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Normalize pred/flag to boolean branch token";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -84,12 +86,13 @@ class ConditionRouterOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Pass-through boolean for BranchMerge / schedule.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const nlohmann::json& v =
         math_nd::require_input_alias(inputs, "in", "pred", "fx.condition_router");
-    return {{"out", math_nd::as_bool_pred(v, "fx.condition_router")}};
+    return fx::wrap(signature_, {{"out", math_nd::as_bool_pred(v, "fx.condition_router")}});
   }
 };
 
@@ -98,13 +101,13 @@ class LuSolveOp final : public cgraph::MemoryOperator {
   LuSolveOp() {
     op_id_ = "fx.lu_solve";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["res"] =
-        cgraph::make_port("res", cgraph::PortKind::Value, "json");
+        cgraph::make_port("res", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Solve Ax=b via partial-pivoted LU";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -113,9 +116,10 @@ class LuSolveOp final : public cgraph::MemoryOperator {
     usage_.inspect = "res = ||Ax-b||_2.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = math_nd::parse_matrix(
         math_nd::require_input(inputs, "A", "fx.lu_solve"), "fx.lu_solve", "A");
     const Eigen::VectorXd b = math_nd::parse_vector(
@@ -125,8 +129,8 @@ class LuSolveOp final : public cgraph::MemoryOperator {
     }
     Eigen::PartialPivLU<Eigen::MatrixXd> lu(A);
     const Eigen::VectorXd x = lu.solve(b);
-    return {{"x", math_nd::make_vec_nd(x)},
-            {"res", residual_norm(A, x, b)}};
+    return fx::wrap(signature_, {{"x", math_nd::make_vec_nd(x)},
+            {"res", residual_norm(A, x, b)}});
   }
 };
 
@@ -135,13 +139,13 @@ class QrSolveOp final : public cgraph::MemoryOperator {
   QrSolveOp() {
     op_id_ = "fx.qr_solve";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["res"] =
-        cgraph::make_port("res", cgraph::PortKind::Value, "json");
+        cgraph::make_port("res", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Solve Ax=b via Householder QR";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -150,9 +154,10 @@ class QrSolveOp final : public cgraph::MemoryOperator {
     usage_.inspect = "res = ||Ax-b||_2.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = math_nd::parse_matrix(
         math_nd::require_input(inputs, "A", "fx.qr_solve"), "fx.qr_solve", "A");
     const Eigen::VectorXd b = math_nd::parse_vector(
@@ -162,8 +167,8 @@ class QrSolveOp final : public cgraph::MemoryOperator {
     }
     Eigen::HouseholderQR<Eigen::MatrixXd> qr(A);
     const Eigen::VectorXd x = qr.solve(b);
-    return {{"x", math_nd::make_vec_nd(x)},
-            {"res", residual_norm(A, x, b)}};
+    return fx::wrap(signature_, {{"x", math_nd::make_vec_nd(x)},
+            {"res", residual_norm(A, x, b)}});
   }
 };
 
@@ -172,13 +177,13 @@ class IterativeSolveOp final : public cgraph::MemoryOperator {
   IterativeSolveOp() {
     op_id_ = "fx.iterative_solve";
     signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, "json");
+        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, "json");
+        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, "json");
+        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["res"] =
-        cgraph::make_port("res", cgraph::PortKind::Value, "json");
+        cgraph::make_port("res", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec tol;
     tol.name = "tol";
     tol.dtype = "number";
@@ -197,9 +202,10 @@ class IterativeSolveOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Requires nonzero diagonal; starts from zeros.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const Eigen::MatrixXd A = math_nd::parse_matrix(
         math_nd::require_input(inputs, "A", "fx.iterative_solve"),
         "fx.iterative_solve", "A");
@@ -235,8 +241,8 @@ class IterativeSolveOp final : public cgraph::MemoryOperator {
         break;
       }
     }
-    return {{"x", math_nd::make_vec_nd(x)},
-            {"res", residual_norm(A, x, b)}};
+    return fx::wrap(signature_, {{"x", math_nd::make_vec_nd(x)},
+            {"res", residual_norm(A, x, b)}});
   }
 };
 
@@ -245,13 +251,13 @@ class BranchMergeVecOp final : public cgraph::MemoryOperator {
   BranchMergeVecOp() {
     op_id_ = "fx.branch_merge_vec";
     signature_.inputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, "json");
+        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["true"] =
-        cgraph::make_port("true", cgraph::PortKind::Value, "json");
+        cgraph::make_port("true", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["false"] =
-        cgraph::make_port("false", cgraph::PortKind::Value, "json");
+        cgraph::make_port("false", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Select vector from true/false by pred";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -260,14 +266,15 @@ class BranchMergeVecOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Functional select; schedule not_scheduled is separate.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const bool pred = math_nd::as_bool_pred(
         math_nd::require_input(inputs, "pred", "fx.branch_merge_vec"),
         "fx.branch_merge_vec");
     const std::string port = pred ? "true" : "false";
-    return {{"out", math_nd::require_input(inputs, port, "fx.branch_merge_vec")}};
+    return fx::wrap(signature_, {{"out", math_nd::require_input(inputs, port, "fx.branch_merge_vec")}});
   }
 };
 
@@ -276,13 +283,13 @@ class BranchMergeScalarOp final : public cgraph::MemoryOperator {
   BranchMergeScalarOp() {
     op_id_ = "fx.branch_merge_scalar";
     signature_.inputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, "json");
+        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["true"] =
-        cgraph::make_port("true", cgraph::PortKind::Value, "json");
+        cgraph::make_port("true", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.inputs["false"] =
-        cgraph::make_port("false", cgraph::PortKind::Value, "json");
+        cgraph::make_port("false", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Select scalar from true/false by pred";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -291,15 +298,16 @@ class BranchMergeScalarOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Functional select; schedule not_scheduled is separate.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs, const nlohmann::json&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const bool pred = math_nd::as_bool_pred(
         math_nd::require_input(inputs, "pred", "fx.branch_merge_scalar"),
         "fx.branch_merge_scalar");
     const std::string port = pred ? "true" : "false";
-    return {
-        {"out", math_nd::require_input(inputs, port, "fx.branch_merge_scalar")}};
+    return fx::wrap(signature_, {
+        {"out", math_nd::require_input(inputs, port, "fx.branch_merge_scalar")}});
   }
 };
 

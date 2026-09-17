@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -26,11 +27,11 @@ class DupOp final : public cgraph::MemoryOperator {
   DupOp() {
     op_id_ = "fx.dup";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["full"] =
-        cgraph::make_port("full", cgraph::PortKind::Value, "json");
+        cgraph::make_port("full", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["head"] =
-        cgraph::make_port("head", cgraph::PortKind::Value, "json");
+        cgraph::make_port("head", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     capability_.summary = "Split a JSON object into full copy and first entry";
     cost_.cost_class = "cpu.tiny";
     usage_.connect = "Connect in; take full and/or head. Unconnected head may be skipped.";
@@ -38,9 +39,10 @@ class DupOp final : public cgraph::MemoryOperator {
     usage_.inspect = "full=in; head is the lexicographically first key-value pair.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext& ctx) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.dup: missing input 'in'");
@@ -52,7 +54,7 @@ class DupOp final : public cgraph::MemoryOperator {
     if (wants(ctx, "head")) {
       out.emplace("head", first_entry(it->second));
     }
-    return out;
+    return fx::wrap(signature_, out);
   }
 };
 

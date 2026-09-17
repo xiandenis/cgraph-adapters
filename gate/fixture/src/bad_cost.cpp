@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <map>
 #include <memory>
@@ -19,14 +20,15 @@ class BadCostOp final : public cgraph::MemoryOperator {
     load_cost_description("fixture");
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& /*params*/, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("x");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.bad_cost: missing input 'x'");
     }
-    return {{"y", it->second}};
+    return fx::wrap(signature_, {{"y", it->second}});
   }
 };
 

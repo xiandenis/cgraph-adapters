@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 #include "cgraph/sandbox.hpp"
 
 #include <memory>
@@ -28,8 +29,8 @@ class SneakOp final : public cgraph::ProcessOperator {
     usage_.inspect = "Writes undeclared_extra; undeclared read must fail the node.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&,
       const nlohmann::json& params, const cgraph::ExecContext& ctx) const override {
     if (ctx.sandbox == nullptr) {
       throw std::invalid_argument("fx.sneak: sandbox required");
@@ -45,7 +46,7 @@ class SneakOp final : public cgraph::ProcessOperator {
     if (!sneak_path.empty()) {
       ctx.sandbox->read_file(sneak_path);
     }
-    return {{"out", ctx.sandbox->output_artifact("out", ctx.artifact_digest_mode)}};
+    return fx::wrap(signature_, {{"out", ctx.sandbox->output_artifact("out", ctx.artifact_digest_mode)}});
   }
 };
 

@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -11,9 +12,9 @@ class StampOp final : public cgraph::MemoryOperator {
   StampOp() {
     op_id_ = "fx.stamp";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec tag;
     tag.name = "tag";
     tag.dtype = "string";
@@ -28,9 +29,10 @@ class StampOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out is {\"p\": in, \"t\": tag}.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.stamp: missing input 'in'");
@@ -42,7 +44,7 @@ class StampOp final : public cgraph::MemoryOperator {
     nlohmann::json out = nlohmann::json::object();
     out["p"] = it->second;
     out["t"] = params["tag"];
-    return {{"out", std::move(out)}};
+    return fx::wrap(signature_, {{"out", std::move(out)}});
   }
 };
 

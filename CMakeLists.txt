@@ -171,6 +171,14 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
   cgraph_rtr_add_test(cgraph_rtr_test_unpack vendor/rtr/tests/test_unpack.cpp)
   cgraph_rtr_add_test(cgraph_rtr_test_rough_fine vendor/rtr/tests/test_rough_fine.cpp)
 
+  add_executable(cgraph_rtr_test_wire vendor/rtr/tests/test_wire.cpp)
+  target_include_directories(cgraph_rtr_test_wire PRIVATE
+    ${CMAKE_SOURCE_DIR}/vendor/rtr/tests
+    ${CMAKE_SOURCE_DIR}/gate/fixture/include
+  )
+  target_link_libraries(cgraph_rtr_test_wire PRIVATE cgraph_rtr_ops cgraph_gate_fixture)
+  add_test(NAME cgraph_rtr_test_wire COMMAND cgraph_rtr_test_wire)
+
   add_executable(cgraph_rtr_test_plugin_smoke vendor/rtr/tests/test_plugin_smoke.cpp)
   target_include_directories(cgraph_rtr_test_plugin_smoke PRIVATE
     ${CMAKE_SOURCE_DIR}/vendor/rtr/tests

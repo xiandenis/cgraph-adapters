@@ -1,4 +1,5 @@
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -14,9 +15,9 @@ class GpuHoldOp final : public cgraph::MemoryOperator {
   GpuHoldOp() {
     op_id_ = "fx.gpu_hold";
     signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, "json");
+        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec ms;
     ms.name = "ms";
     ms.dtype = "int";
@@ -32,9 +33,10 @@ class GpuHoldOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Slot gpu.lock exists while running.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>& inputs,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext& ctx) const override {
+    const auto inputs = fx::unwrap(data_in);
     const auto it = inputs.find("in");
     if (it == inputs.end()) {
       throw std::invalid_argument("fx.gpu_hold: missing input 'in'");
@@ -54,7 +56,7 @@ class GpuHoldOp final : public cgraph::MemoryOperator {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     std::error_code ec;
     std::filesystem::remove(lock_path, ec);
-    return {{"out", it->second}};
+    return fx::wrap(signature_, {{"out", it->second}});
   }
 };
 

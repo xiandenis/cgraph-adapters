@@ -1,5 +1,6 @@
 #include "cgraph/artifact.hpp"
 #include "cgraph/ops.hpp"
+#include "fx_data.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -85,13 +86,13 @@ class MemBlobWriteOp final : public cgraph::MemoryOperator {
     usage_.inspect = "File length is nbytes; prefix is tag.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext& ctx) const override {
     const int nbytes = require_nbytes(params);
     const std::string tag = require_tag(params, "fx.mem_blob_write");
-    return {{"out", write_artifact_file(ctx.output_path("out"),
-                                       tagged_payload(nbytes, tag), ctx)}};
+    return fx::wrap(signature_, {{"out", write_artifact_file(ctx.output_path("out"),
+                                       tagged_payload(nbytes, tag), ctx)}});
   }
 };
 
@@ -116,19 +117,19 @@ class MemBlobXformOp final : public cgraph::MemoryOperator {
     usage_.inspect = "out bytes = in bytes + tag.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext& ctx) const override {
     const std::string tag = require_tag(params, "fx.mem_blob_xform");
     const cgraph::Artifact src = ctx.input_artifact("in");
-    std::ifstream in(src.path, std::ios::binary);
+    std::ifstream in(src.location, std::ios::binary);
     if (!in) {
-      throw std::runtime_error("fx.mem_blob_xform: cannot read " + src.path.string());
+      throw std::runtime_error("fx.mem_blob_xform: cannot read " + src.location.string());
     }
     std::string payload((std::istreambuf_iterator<char>(in)),
                         std::istreambuf_iterator<char>());
     payload += tag;
-    return {{"out", write_artifact_file(ctx.output_path("out"), payload, ctx)}};
+    return fx::wrap(signature_, {{"out", write_artifact_file(ctx.output_path("out"), payload, ctx)}});
   }
 };
 
@@ -162,13 +163,13 @@ class MemBlobSneakOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Returns a handle to path; kernel must reject it.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext& ctx) const override {
     const auto out = require_path(params, "fx.mem_blob_sneak");
     const int nbytes = require_nbytes(params);
     const std::string tag = require_tag(params, "fx.mem_blob_sneak");
-    return {{"out", write_artifact_file(out, tagged_payload(nbytes, tag), ctx)}};
+    return fx::wrap(signature_, {{"out", write_artifact_file(out, tagged_payload(nbytes, tag), ctx)}});
   }
 };
 
@@ -177,7 +178,7 @@ class MemValueSmuggleOp final : public cgraph::MemoryOperator {
   MemValueSmuggleOp() {
     op_id_ = "fx.mem_value_smuggle";
     signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, "json");
+        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("number"));
     cgraph::ParamSpec path;
     path.name = "path";
     path.dtype = "string";
@@ -202,13 +203,13 @@ class MemValueSmuggleOp final : public cgraph::MemoryOperator {
     usage_.inspect = "Value out is an artifact handle JSON; kernel must reject it.";
   }
 
-  std::map<std::string, nlohmann::json> execute(
-      const std::map<std::string, nlohmann::json>&, const nlohmann::json& params,
+  std::map<std::string, cgraph::DataObject> execute(
+      const std::map<std::string, cgraph::DataObject>&, const nlohmann::json& params,
       const cgraph::ExecContext& ctx) const override {
     const auto out = require_path(params, "fx.mem_value_smuggle");
     const int nbytes = require_nbytes(params);
     const std::string tag = require_tag(params, "fx.mem_value_smuggle");
-    return {{"out", write_artifact_file(out, tagged_payload(nbytes, tag), ctx)}};
+    return fx::wrap(signature_, {{"out", write_artifact_file(out, tagged_payload(nbytes, tag), ctx)}});
   }
 };
 
