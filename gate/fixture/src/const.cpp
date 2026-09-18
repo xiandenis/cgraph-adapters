@@ -10,19 +10,20 @@ class ConstOp final : public cgraph::MemoryOperator {
  public:
   ConstOp() {
     op_id_ = "fx.const";
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = cgraph::make_port(
+        "out", cgraph::PortKind::Value, cgraph::type_ids::untyped(),
+        cgraph::SemanticSpec::of("cgraph.semantic.document"));
     cgraph::ParamSpec value;
     value.name = "value";
     value.dtype = "string";
     value.bindable = false;
     signature_.params["value"] = std::move(value);
-    capability_.summary = "Emit a JSON literal";
-    capability_.tags = {"math", "fixture", "io"};
+    capability_.summary = "Emit an untyped document literal (not for math ports)";
+    capability_.tags = {"debug", "fixture", "io"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "No inputs. Connect out to a json value port.";
-    usage_.tune = "Set params.value to the literal.";
-    usage_.inspect = "out equals params.value byte-for-byte after canon.";
+    usage_.connect = "No inputs. Do not wire out into fx math float/vector/matrix ports.";
+    usage_.tune = "Set params.value to a JSON literal.";
+    usage_.inspect = "For math graphs use fx.const_scalar / const_vector / const_matrix.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(

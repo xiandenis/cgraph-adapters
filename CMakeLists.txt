@@ -24,7 +24,9 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 # --- gate/fixture (kernel-acceptance fixtures; not production) ---
 add_library(cgraph_gate_fixture
+  gate/fixture/src/fx_types.cpp
   gate/fixture/src/const.cpp
+  gate/fixture/src/const_scalar.cpp
   gate/fixture/src/echo.cpp
   gate/fixture/src/probe.cpp
   gate/fixture/src/dup.cpp
@@ -96,12 +98,44 @@ if(MSVC)
   target_compile_options(cgraph_gate_fixture_plugin PRIVATE /utf-8)
 endif()
 
+add_custom_command(TARGET cgraph_gate_fixture_plugin POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/gate/fixture/catalog/fx-types.yaml"
+    "$<TARGET_FILE_DIR:cgraph_gate_fixture_plugin>/fx-types.yaml"
+)
+install(FILES "${CMAKE_SOURCE_DIR}/gate/fixture/catalog/fx-types.yaml"
+  DESTINATION operators
+)
+
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/native")
 
 install(TARGETS cgraph_gate_fixture_plugin
   RUNTIME DESTINATION operators
   LIBRARY DESTINATION operators
 )
+
+enable_testing()
+function(cgraph_fixture_add_test name)
+  add_executable(${name} ${ARGN})
+  target_include_directories(${name} PRIVATE
+    ${CMAKE_SOURCE_DIR}/gate/fixture/src
+    ${CMAKE_SOURCE_DIR}/gate/fixture/include
+    ${CMAKE_SOURCE_DIR}/vendor/rtr/tests
+  )
+  target_link_libraries(${name} PRIVATE cgraph_gate_fixture)
+  if(MSVC)
+    target_compile_options(${name} PRIVATE /utf-8)
+  endif()
+  add_test(NAME ${name} COMMAND ${name})
+endfunction()
+cgraph_fixture_add_test(cgraph_fixture_test_fx_typed
+  gate/fixture/tests/test_fx_typed.cpp)
+cgraph_fixture_add_test(cgraph_fixture_test_math_typed_wire
+  gate/fixture/tests/test_math_typed_wire.cpp)
+cgraph_fixture_add_test(cgraph_fixture_test_math_case01
+  gate/fixture/tests/test_math_case01.cpp)
+cgraph_fixture_add_test(cgraph_fixture_test_math_cases
+  gate/fixture/tests/test_math_cases_02_05.cpp)
 
 option(CGRAPH_ADAPTERS_WITH_RTR "Wrap RTR leaf algorithms" ON)
 if(CGRAPH_ADAPTERS_WITH_RTR)

@@ -5,8 +5,10 @@
 #endif
 
 #include "cgraph/runtime.hpp"
+#include "fixture/fx_types.hpp"
 #include "fixture/ops.hpp"
 
 extern "C" CGRAPH_PLUGIN_EXPORT void cgraph_plugin_register(cgraph::Runtime& rt) {
+  fixture::register_fx_types();
   fixture::register_fixture_ops(rt.registry());
 }

@@ -1,5 +1,5 @@
 #include "cgraph/ops.hpp"
-#include "fx_data.hpp"
+#include "fx_typed.hpp"
 
 #include <cmath>
 #include <memory>
@@ -9,28 +9,12 @@
 namespace fixture {
 namespace {
 
-double require_number(const std::map<std::string, nlohmann::json>& inputs,
-                      const std::string& name, const char* op) {
-  const auto it = inputs.find(name);
-  if (it == inputs.end()) {
-    throw std::invalid_argument(std::string(op) + ": missing input '" + name + "'");
-  }
-  if (!it->second.is_number()) {
-    throw std::invalid_argument(std::string(op) + ": input '" + name +
-                                "' must be a JSON number");
-  }
-  return it->second.get<double>();
-}
-
-double param_or_input_exp(const std::map<std::string, nlohmann::json>& inputs,
-                          const nlohmann::json& params) {
-  // Wired input wins; Runtime.resolve_params also mirrors it into params.exp.
-  const auto it = inputs.find("exp");
-  if (it != inputs.end()) {
-    if (!it->second.is_number()) {
-      throw std::invalid_argument("fx.pow: input 'exp' must be a JSON number");
-    }
-    return it->second.get<double>();
+double param_or_input_exp(
+    const std::map<std::string, cgraph::DataObject>& data_in,
+    const nlohmann::json& params) {
+  const auto it = data_in.find("exp");
+  if (it != data_in.end()) {
+    return fx_typed::require_float(it->second, "fx.pow", "exp");
   }
   if (params.is_object() && params.contains("exp") && params["exp"].is_number()) {
     return params["exp"].get<double>();
@@ -42,13 +26,11 @@ class PowOp final : public cgraph::MemoryOperator {
  public:
   PowOp() {
     op_id_ = "fx.pow";
-    signature_.inputs["base"] =
-        cgraph::make_port("base", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto exp_in = cgraph::make_port("exp", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["base"] = fx_typed::float_port("base");
+    auto exp_in = fx_typed::float_port("exp");
     exp_in.optional = true;
     signature_.inputs["exp"] = std::move(exp_in);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_port("out");
     cgraph::ParamSpec exp;
     exp.name = "exp";
     exp.dtype = "number";
@@ -58,22 +40,21 @@ class PowOp final : public cgraph::MemoryOperator {
     capability_.summary = "Power: out = base ** exp";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire base; wire exp or set params.exp; read out.";
+    usage_.connect = "Wire float base; wire exp or set params.exp; read out.";
     usage_.tune = "params.exp used only if exp input absent.";
-    usage_.inspect = "Domain errors (e.g. negative**non-int) throw.";
+    usage_.inspect = "Domain errors throw with fx.pow prefix.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const double base = require_number(inputs, "base", "fx.pow");
-    const double exp = param_or_input_exp(inputs, params);
+    const double base = fx_typed::require_float_port(data_in, "base", "fx.pow");
+    const double exp = param_or_input_exp(data_in, params);
     const double out = std::pow(base, exp);
     if (!std::isfinite(out)) {
       throw std::invalid_argument("fx.pow: non-finite result");
     }
-    return fx::wrap(signature_, {{"out", out}});
+    return {{"out", fx_typed::make_number_float(out)}};
   }
 };
 
@@ -87,14 +68,12 @@ class UnaryMathOp final : public cgraph::MemoryOperator {
         reject_nonpositive_(reject_nonpositive),
         reject_negative_(reject_negative) {
     op_id_ = id;
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["in"] = fx_typed::float_port("in");
+    signature_.outputs["out"] = fx_typed::float_port("out");
     capability_.summary = summary;
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire a JSON number into in; read out.";
+    usage_.connect = "Wire a float into in; read out.";
     usage_.tune = "No parameters.";
     usage_.inspect = "Domain errors throw with op_id prefix.";
   }
@@ -102,8 +81,7 @@ class UnaryMathOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const double x = require_number(inputs, "in", op_id_.c_str());
+    const double x = fx_typed::require_float_port(data_in, "in", op_id_);
     if (reject_nonpositive_ && !(x > 0.0)) {
       throw std::invalid_argument(op_id_ + ": domain requires in > 0");
     }
@@ -114,7 +92,7 @@ class UnaryMathOp final : public cgraph::MemoryOperator {
     if (!std::isfinite(out)) {
       throw std::invalid_argument(op_id_ + ": non-finite result");
     }
-    return fx::wrap(signature_, {{"out", out}});
+    return {{"out", fx_typed::make_number_float(out)}};
   }
 
  private:

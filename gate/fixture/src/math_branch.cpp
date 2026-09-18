@@ -1,5 +1,5 @@
 #include "cgraph/ops.hpp"
-#include "fx_data.hpp"
+#include "fx_typed.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -11,14 +11,12 @@ class CondGt0Op final : public cgraph::MemoryOperator {
  public:
   CondGt0Op() {
     op_id_ = "fx.cond_gt0";
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["in"] = fx_typed::float_port("in");
+    signature_.outputs["pred"] = fx_typed::bool_port("pred");
     capability_.summary = "Predicate: pred = (in > 0)";
     capability_.tags = {"math", "control", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire scalar into in; pred is JSON bool for CONDITION.";
+    usage_.connect = "Wire float into in; pred is bool for CONDITION / merge.";
     usage_.tune = "No parameters.";
     usage_.inspect = "pred true iff in > 0.";
   }
@@ -26,12 +24,8 @@ class CondGt0Op final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const auto it = inputs.find("in");
-    if (it == inputs.end() || !it->second.is_number()) {
-      throw std::invalid_argument("fx.cond_gt0: missing numeric 'in'");
-    }
-    return fx::wrap(signature_, {{"pred", it->second.get<double>() > 0.0}});
+    const double x = fx_typed::require_float_port(data_in, "in", "fx.cond_gt0");
+    return {{"pred", fx_typed::make_bool_pred(x > 0.0)}};
   }
 };
 
@@ -39,18 +33,14 @@ class BranchMergeOp final : public cgraph::MemoryOperator {
  public:
   BranchMergeOp() {
     op_id_ = "fx.branch_merge";
-    signature_.inputs["true"] =
-        cgraph::make_port("true", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["false"] =
-        cgraph::make_port("false", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["pred"] =
-        cgraph::make_port("pred", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    capability_.summary = "Select true/false branch by pred";
+    signature_.inputs["true"] = fx_typed::float_port("true");
+    signature_.inputs["false"] = fx_typed::float_port("false");
+    signature_.inputs["pred"] = fx_typed::bool_port("pred");
+    signature_.outputs["out"] = fx_typed::float_port("out");
+    capability_.summary = "Select true/false float by pred";
     capability_.tags = {"math", "control", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire both branches + boolean pred; read out.";
+    usage_.connect = "Wire both float branches + bool pred; read out.";
     usage_.tune =
         "For not_scheduled false side, use IR CONDITION then/else graphs.";
     usage_.inspect = "out = pred ? true : false.";
@@ -59,17 +49,14 @@ class BranchMergeOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const auto pit = inputs.find("pred");
-    const auto tit = inputs.find("true");
-    const auto fit = inputs.find("false");
-    if (pit == inputs.end() || !pit->second.is_boolean()) {
-      throw std::invalid_argument("fx.branch_merge: pred must be boolean");
-    }
-    if (tit == inputs.end() || fit == inputs.end()) {
-      throw std::invalid_argument("fx.branch_merge: missing true/false");
-    }
-    return fx::wrap(signature_, {{"out", pit->second.get<bool>() ? tit->second : fit->second}});
+    const bool pred = fx_typed::require_bool(
+        fx_typed::require_obj(data_in, "pred", "fx.branch_merge"),
+        "fx.branch_merge", "pred");
+    const double t =
+        fx_typed::require_float_port(data_in, "true", "fx.branch_merge");
+    const double f =
+        fx_typed::require_float_port(data_in, "false", "fx.branch_merge");
+    return {{"out", fx_typed::make_number_float(pred ? t : f)}};
   }
 };
 

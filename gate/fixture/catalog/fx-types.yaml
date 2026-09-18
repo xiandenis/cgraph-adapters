@@ -1,0 +1,18 @@
+pack_id: fx.types
+namespace: fx
+depends: [cgraph]
+semantics: []
+types:
+  - type_id: fx.type.vector
+    form: tensor
+    tensor: {dtype: f64, shape: []}
+    semantics: [cgraph.semantic.number]
+    display: {family: tensor, label: vector}
+  - type_id: fx.type.matrix
+    form: record
+    semantics: [cgraph.semantic.number]
+    display: {family: record, label: matrix}
+    fields:
+      - {name: rows, type_id: cgraph.type.int, semantic_id: cgraph.semantic.count, required: true}
+      - {name: cols, type_id: cgraph.type.int, semantic_id: cgraph.semantic.count, required: true}
+      - {name: data, type_id: "cgraph.type.list[cgraph.type.float]", semantic_id: cgraph.semantic.number, required: true}

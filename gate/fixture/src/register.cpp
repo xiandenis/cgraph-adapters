@@ -1,10 +1,12 @@
 #include "fixture/ops.hpp"
+#include "fixture/fx_types.hpp"
 
 #include <memory>
 
 namespace fixture {
 
 std::shared_ptr<cgraph::MemoryOperator> make_const();
+std::shared_ptr<cgraph::MemoryOperator> make_const_scalar();
 std::shared_ptr<cgraph::MemoryOperator> make_echo();
 std::shared_ptr<cgraph::MemoryOperator> make_probe();
 std::shared_ptr<cgraph::MemoryOperator> make_dup();
@@ -100,7 +102,9 @@ std::shared_ptr<cgraph::MemoryOperator> make_subproc_sneak();
 void register_photogram_ops(cgraph::OpRegistry& registry);
 
 void register_fixture_ops(cgraph::OpRegistry& registry) {
+  register_fx_types();
   registry.add(make_const());
+  registry.add(make_const_scalar());
   registry.add(make_echo());
   registry.add(make_probe());
   registry.add(make_dup());

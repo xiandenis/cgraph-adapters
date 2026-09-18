@@ -1,5 +1,6 @@
 #include "cgraph/ops.hpp"
 #include "fx_data.hpp"
+#include "fx_typed.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -234,35 +235,25 @@ class MulOp final : public cgraph::MemoryOperator {
  public:
   MulOp() {
     op_id_ = "fx.mul";
-    signature_.inputs["a"] =
-        cgraph::make_port("a", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["b"] =
-        cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    capability_.summary = "Scalar mul of numbers, or ndarray * kernel";
-    capability_.tags = {"math", "conv", "fixture"};
+    signature_.inputs["a"] = fixture::fx_typed::float_port("a");
+    signature_.inputs["b"] = fixture::fx_typed::float_port("b");
+    signature_.outputs["out"] = fixture::fx_typed::float_port("out");
+    capability_.summary = "Multiply two floats";
+    capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Numbers a,b → out; or ndarray JSON (P0 1x1).";
-    usage_.tune = "No parameters.";
-    usage_.inspect = "Scalar: out=a*b. Ndarray: same digest as 1x1 Filter2D.";
+    usage_.connect = "Wire floats a,b; read out.";
+    usage_.tune = "No parameters. For ndarray scale use fx.gemm / filter2d.";
+    usage_.inspect = "out = a * b.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const auto ait = inputs.find("a");
-    const auto bit = inputs.find("b");
-    if (ait == inputs.end() || bit == inputs.end()) {
-      throw std::invalid_argument("fx.mul: missing input 'a' or 'b'");
-    }
-    if (ait->second.is_number() && bit->second.is_number()) {
-      return fx::wrap(signature_, {{"out", ait->second.get<double>() * bit->second.get<double>()}});
-    }
-    const nlohmann::json a = require_nd(inputs, "a", "fx.mul");
-    const nlohmann::json b = require_nd(inputs, "b", "fx.mul");
-    return fx::wrap(signature_, {{"out", scaled_copy(a, kernel_scale(b))}});
+    const double a =
+        fixture::fx_typed::require_float_port(data_in, "a", "fx.mul");
+    const double b =
+        fixture::fx_typed::require_float_port(data_in, "b", "fx.mul");
+    return {{"out", fixture::fx_typed::make_number_float(a * b)}};
   }
 };
 
