@@ -1,6 +1,5 @@
 #include "cgraph/ops.hpp"
-#include "fx_data.hpp"
-#include "math_nd_util.hpp"
+#include "fx_typed.hpp"
 
 #include <cmath>
 #include <memory>
@@ -11,7 +10,14 @@ namespace fixture {
 namespace {
 
 void require_quadratic_l2(const nlohmann::json& params, const char* op) {
-  const std::string mode = math_nd::mode_or_f(params);
+  std::string mode;
+  if (params.is_object()) {
+    if (params.contains("mode") && params["mode"].is_string()) {
+      mode = params["mode"].get<std::string>();
+    } else if (params.contains("f") && params["f"].is_string()) {
+      mode = params["f"].get<std::string>();
+    }
+  }
   if (mode.empty()) {
     throw std::invalid_argument(std::string(op) +
                                 ": params.mode (or f) required");
@@ -40,20 +46,37 @@ Eigen::VectorXd grad_quadratic_l2(const Eigen::VectorXd& x,
   return x;
 }
 
+bool load_optional_Ab(const std::map<std::string, cgraph::DataObject>& data_in,
+                      const char* op, Eigen::MatrixXd* Astore,
+                      Eigen::VectorXd* bstore, const Eigen::MatrixXd** Ap,
+                      const Eigen::VectorXd** bp) {
+  const bool has_A = data_in.count("A") != 0;
+  const bool has_b = data_in.count("b") != 0;
+  if (!has_A && !has_b) {
+    return false;
+  }
+  if (!has_A || !has_b) {
+    throw std::invalid_argument(std::string(op) + ": A and b must both be set");
+  }
+  *Astore = fx_typed::require_matrix(data_in.at("A"), op, "A");
+  *bstore = fx_typed::require_vector(data_in.at("b"), op, "b");
+  *Ap = Astore;
+  *bp = bstore;
+  return true;
+}
+
 class GradientOp final : public cgraph::MemoryOperator {
  public:
   GradientOp() {
     op_id_ = "fx.gradient";
-    signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["x"] = fx_typed::vector_port("x");
+    auto A = fx_typed::matrix_port("A");
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto b = fx_typed::vector_port("b");
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::vector_port("out");
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -74,26 +97,15 @@ class GradientOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.gradient");
-    const Eigen::VectorXd x = math_nd::parse_vector(
-        math_nd::require_input(inputs, "x", "fx.gradient"), "fx.gradient", "x");
-    const Eigen::MatrixXd* Ap = nullptr;
-    const Eigen::VectorXd* bp = nullptr;
+    const Eigen::VectorXd x = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "x", "fx.gradient"), "fx.gradient", "x");
     Eigen::MatrixXd Astore;
     Eigen::VectorXd bstore;
-    const auto ait = inputs.find("A");
-    const auto bit = inputs.find("b");
-    if (ait != inputs.end() || bit != inputs.end()) {
-      if (ait == inputs.end() || bit == inputs.end()) {
-        throw std::invalid_argument("fx.gradient: A and b must both be set");
-      }
-      Astore = math_nd::parse_matrix(ait->second, "fx.gradient", "A");
-      bstore = math_nd::parse_vector(bit->second, "fx.gradient", "b");
-      Ap = &Astore;
-      bp = &bstore;
-    }
-    return fx::wrap(signature_, {{"out", math_nd::make_vec_nd(grad_quadratic_l2(x, Ap, bp))}});
+    const Eigen::MatrixXd* Ap = nullptr;
+    const Eigen::VectorXd* bp = nullptr;
+    load_optional_Ab(data_in, "fx.gradient", &Astore, &bstore, &Ap, &bp);
+    return {{"out", fx_typed::make_vector(grad_quadratic_l2(x, Ap, bp))}};
   }
 };
 
@@ -101,20 +113,16 @@ class LineSearchOp final : public cgraph::MemoryOperator {
  public:
   LineSearchOp() {
     op_id_ = "fx.line_search";
-    signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["g"] =
-        cgraph::make_port("g", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["lr"] =
-        cgraph::make_port("lr", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["x"] = fx_typed::vector_port("x");
+    signature_.inputs["g"] = fx_typed::vector_port("g");
+    signature_.inputs["lr"] = fx_typed::float_port("lr");
+    auto A = fx_typed::matrix_port("A");
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto b = fx_typed::vector_port("b");
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_port("out");
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -138,39 +146,29 @@ class LineSearchOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.line_search");
-    const Eigen::VectorXd x = math_nd::parse_vector(
-        math_nd::require_input(inputs, "x", "fx.line_search"), "fx.line_search",
+    const Eigen::VectorXd x = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "x", "fx.line_search"), "fx.line_search",
         "x");
-    const Eigen::VectorXd g = math_nd::parse_vector(
-        math_nd::require_input(inputs, "g", "fx.line_search"), "fx.line_search",
+    const Eigen::VectorXd g = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "g", "fx.line_search"), "fx.line_search",
         "g");
-    double alpha = math_nd::require_number(
-        math_nd::require_input(inputs, "lr", "fx.line_search"), "fx.line_search",
-        "lr");
+    double alpha = fx_typed::require_float_port(data_in, "lr", "fx.line_search");
     if (!(alpha > 0.0) || !std::isfinite(alpha)) {
       throw std::invalid_argument("fx.line_search: lr must be positive finite");
     }
-    const Eigen::MatrixXd* Ap = nullptr;
-    const Eigen::VectorXd* bp = nullptr;
     Eigen::MatrixXd Astore;
     Eigen::VectorXd bstore;
-    const auto ait = inputs.find("A");
-    const auto bit = inputs.find("b");
-    if (ait != inputs.end() && bit != inputs.end()) {
-      Astore = math_nd::parse_matrix(ait->second, "fx.line_search", "A");
-      bstore = math_nd::parse_vector(bit->second, "fx.line_search", "b");
-      Ap = &Astore;
-      bp = &bstore;
-    }
+    const Eigen::MatrixXd* Ap = nullptr;
+    const Eigen::VectorXd* bp = nullptr;
+    load_optional_Ab(data_in, "fx.line_search", &Astore, &bstore, &Ap, &bp);
     bool backtrack = true;
     if (params.is_object() && params.contains("backtrack") &&
         params["backtrack"].is_boolean()) {
       backtrack = params["backtrack"].get<bool>();
     }
     if (!backtrack) {
-      return fx::wrap(signature_, {{"out", alpha}});
+      return {{"out", fx_typed::make_number_float(alpha)}};
     }
     const double f0 = loss_quadratic_l2(x, Ap, bp);
     for (int i = 0; i < 20; ++i) {
@@ -181,7 +179,7 @@ class LineSearchOp final : public cgraph::MemoryOperator {
       }
       alpha *= 0.5;
     }
-    return fx::wrap(signature_, {{"out", alpha}});
+    return {{"out", fx_typed::make_number_float(alpha)}};
   }
 };
 
@@ -189,17 +187,13 @@ class UpdateOp final : public cgraph::MemoryOperator {
  public:
   UpdateOp() {
     op_id_ = "fx.update";
-    signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["g"] =
-        cgraph::make_port("g", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["alpha"] =
-        cgraph::make_port("alpha", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto lr = cgraph::make_port("lr", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["x"] = fx_typed::vector_port("x");
+    signature_.inputs["g"] = fx_typed::vector_port("g");
+    signature_.inputs["alpha"] = fx_typed::float_port("alpha");
+    auto lr = fx_typed::float_port("lr");
     lr.optional = true;
     signature_.inputs["lr"] = std::move(lr);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::vector_port("out");
     capability_.summary = "GD step: x_new = x - alpha * g";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -211,18 +205,22 @@ class UpdateOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const Eigen::VectorXd x = math_nd::parse_vector(
-        math_nd::require_input(inputs, "x", "fx.update"), "fx.update", "x");
-    const Eigen::VectorXd g = math_nd::parse_vector(
-        math_nd::require_input(inputs, "g", "fx.update"), "fx.update", "g");
-    const nlohmann::json& a_json =
-        math_nd::require_input_alias(inputs, "alpha", "lr", "fx.update");
-    const double alpha = math_nd::require_number(a_json, "fx.update", "alpha");
+    const Eigen::VectorXd x = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "x", "fx.update"), "fx.update", "x");
+    const Eigen::VectorXd g = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "g", "fx.update"), "fx.update", "g");
+    double alpha = 0.0;
+    if (data_in.count("alpha") != 0) {
+      alpha = fx_typed::require_float(data_in.at("alpha"), "fx.update", "alpha");
+    } else if (data_in.count("lr") != 0) {
+      alpha = fx_typed::require_float(data_in.at("lr"), "fx.update", "lr");
+    } else {
+      throw std::invalid_argument("fx.update: missing alpha (or lr)");
+    }
     if (x.size() != g.size()) {
       throw std::invalid_argument("fx.update: x and g size mismatch");
     }
-    return fx::wrap(signature_, {{"out", math_nd::make_vec_nd(x - alpha * g)}});
+    return {{"out", fx_typed::make_vector(x - alpha * g)}};
   }
 };
 
@@ -230,16 +228,14 @@ class LossCalcOp final : public cgraph::MemoryOperator {
  public:
   LossCalcOp() {
     op_id_ = "fx.loss_calc";
-    signature_.inputs["x"] =
-        cgraph::make_port("x", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto A = cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["x"] = fx_typed::vector_port("x");
+    auto A = fx_typed::matrix_port("A");
     A.optional = true;
     signature_.inputs["A"] = std::move(A);
-    auto b = cgraph::make_port("b", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto b = fx_typed::vector_port("b");
     b.optional = true;
     signature_.inputs["b"] = std::move(b);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_port("out");
     cgraph::ParamSpec mode;
     mode.name = "mode";
     mode.dtype = "string";
@@ -258,24 +254,16 @@ class LossCalcOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
     require_quadratic_l2(params, "fx.loss_calc");
-    const Eigen::VectorXd x = math_nd::parse_vector(
-        math_nd::require_input(inputs, "x", "fx.loss_calc"), "fx.loss_calc",
+    const Eigen::VectorXd x = fx_typed::require_vector(
+        fx_typed::require_obj(data_in, "x", "fx.loss_calc"), "fx.loss_calc",
         "x");
-    const Eigen::MatrixXd* Ap = nullptr;
-    const Eigen::VectorXd* bp = nullptr;
     Eigen::MatrixXd Astore;
     Eigen::VectorXd bstore;
-    const auto ait = inputs.find("A");
-    const auto bit = inputs.find("b");
-    if (ait != inputs.end() && bit != inputs.end()) {
-      Astore = math_nd::parse_matrix(ait->second, "fx.loss_calc", "A");
-      bstore = math_nd::parse_vector(bit->second, "fx.loss_calc", "b");
-      Ap = &Astore;
-      bp = &bstore;
-    }
-    return fx::wrap(signature_, {{"out", loss_quadratic_l2(x, Ap, bp)}});
+    const Eigen::MatrixXd* Ap = nullptr;
+    const Eigen::VectorXd* bp = nullptr;
+    load_optional_Ab(data_in, "fx.loss_calc", &Astore, &bstore, &Ap, &bp);
+    return {{"out", fx_typed::make_number_float(loss_quadratic_l2(x, Ap, bp))}};
   }
 };
 

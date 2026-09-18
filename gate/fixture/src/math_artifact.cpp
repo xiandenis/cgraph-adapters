@@ -1,11 +1,11 @@
-#include "cgraph/artifact.hpp"
 #include "cgraph/ops.hpp"
-#include "fx_data.hpp"
-#include "math_nd_util.hpp"
+#include "fx_typed.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -40,27 +40,6 @@ std::string require_path_param(const nlohmann::json& params, const char* op) {
   return params["path"].get<std::string>();
 }
 
-std::vector<double> parse_numeric_series(const nlohmann::json& j,
-                                         const char* op) {
-  if (j.is_array()) {
-    std::vector<double> xs;
-    xs.reserve(j.size());
-    for (const auto& v : j) {
-      if (!v.is_number()) {
-        throw std::invalid_argument(std::string(op) +
-                                    ": series entries must be numbers");
-      }
-      xs.push_back(v.get<double>());
-    }
-    return xs;
-  }
-  if (j.is_object() && j.contains("data") && j["data"].is_array()) {
-    return parse_numeric_series(j["data"], op);
-  }
-  throw std::invalid_argument(std::string(op) +
-                              ": series must be a number array");
-}
-
 std::vector<double> read_csv_numbers(const fs::path& path, const char* op) {
   std::ifstream in(path);
   if (!in) {
@@ -73,12 +52,10 @@ std::vector<double> read_csv_numbers(const fs::path& path, const char* op) {
     if (line.empty()) {
       continue;
     }
-    // Accept "z", "t,z", or whitespace-separated numbers; take last token as z.
     std::stringstream ss(line);
     std::string tok;
     std::string last;
     while (std::getline(ss, tok, ',')) {
-      // also split spaces inside token
       std::stringstream ts(tok);
       std::string w;
       while (ts >> w) {
@@ -86,7 +63,7 @@ std::vector<double> read_csv_numbers(const fs::path& path, const char* op) {
       }
     }
     if (last.empty() || last == "z" || last == "meas" || last == "value") {
-      continue;  // header
+      continue;
     }
     try {
       xs.push_back(std::stod(last));
@@ -119,11 +96,11 @@ KalmanResult kalman_1d(const std::vector<double>& zs, double Q, double R) {
   r.innovations.reserve(zs.size());
   double innov_sum = 0.0;
   for (double z : zs) {
-    const double x_pred = x;  // F=1
+    const double x_pred = x;
     const double P_pred = P + Q;
     const double S = P_pred + R;
     const double K = P_pred / S;
-    const double innov = z - x_pred;  // H=1
+    const double innov = z - x_pred;
     x = x_pred + K * innov;
     P = (1.0 - K) * P_pred;
     r.innovations.push_back(innov);
@@ -134,13 +111,6 @@ KalmanResult kalman_1d(const std::vector<double>& zs, double Q, double R) {
   r.mean_innov =
       zs.empty() ? 0.0 : innov_sum / static_cast<double>(zs.size());
   return r;
-}
-
-nlohmann::json kalman_result_json(const KalmanResult& r) {
-  return nlohmann::json{{"final_state", r.final_state},
-                        {"final_cov", r.final_cov},
-                        {"innovations", r.innovations},
-                        {"mean_innov", r.mean_innov}};
 }
 
 std::vector<fs::path> list_csv_files(const fs::path& dir) {
@@ -161,64 +131,44 @@ std::vector<fs::path> list_csv_files(const fs::path& dir) {
   return files;
 }
 
-nlohmann::json files_to_json(const std::vector<fs::path>& files) {
-  nlohmann::json arr = nlohmann::json::array();
-  for (const auto& p : files) {
-    arr.push_back(p.string());
-  }
-  return arr;
-}
-
-// Resolve items input: array of paths, dir manifest object, or dir artifact.
-std::vector<fs::path> resolve_file_list(const nlohmann::json& items,
+std::vector<fs::path> resolve_file_list(const cgraph::DataObject& items,
                                         const char* op) {
-  std::vector<fs::path> out;
-  if (cgraph::is_artifact_handle(items)) {
-    const cgraph::Artifact art = cgraph::artifact_from_json(items);
-    if (!art.is_dir) {
-      throw std::invalid_argument(std::string(op) +
-                                  ": artifact must be a directory");
-    }
-    return list_csv_files(art.location);
+  if (fx_typed::is_directory_artifact(items)) {
+    return list_csv_files(fx_typed::require_directory_uri(items, op, "items"));
   }
-  if (items.is_object()) {
-    if (items.contains("files") && items["files"].is_array()) {
-      for (const auto& f : items["files"]) {
-        if (!f.is_string()) {
-          throw std::invalid_argument(std::string(op) +
-                                      ": files entries must be strings");
-        }
-        out.emplace_back(f.get<std::string>());
-      }
-      return out;
-    }
-    if (items.contains("path") && items["path"].is_string()) {
-      return list_csv_files(items["path"].get<std::string>());
-    }
-  }
-  if (items.is_array()) {
-    for (const auto& f : items) {
-      if (!f.is_string()) {
-        throw std::invalid_argument(std::string(op) +
-                                    ": file list entries must be strings");
-      }
-      out.emplace_back(f.get<std::string>());
+  if (items.type_id == type_string_list() ||
+      items.payload.kind() == cgraph::Payload::Kind::List) {
+    const auto paths = fx_typed::require_string_list(items, op, "items");
+    std::vector<fs::path> out;
+    out.reserve(paths.size());
+    for (const auto& p : paths) {
+      out.emplace_back(p);
     }
     return out;
   }
-  if (items.is_string()) {
-    return list_csv_files(items.get<std::string>());
-  }
   throw std::invalid_argument(std::string(op) +
-                              ": cannot resolve file list from items");
+                              ": items must be directory Artifact or "
+                              "list[string] paths");
+}
+
+const cgraph::DataObject& require_alias(
+    const std::map<std::string, cgraph::DataObject>& data_in, const char* primary,
+    const char* alias, const char* op) {
+  if (data_in.count(primary) != 0) {
+    return data_in.at(primary);
+  }
+  if (data_in.count(alias) != 0) {
+    return data_in.at(alias);
+  }
+  throw std::invalid_argument(std::string(op) + ": missing '" + primary +
+                              "' (or '" + alias + "')");
 }
 
 class InputArtifactDirOp final : public cgraph::MemoryOperator {
  public:
   InputArtifactDirOp() {
     op_id_ = "fx.input_artifact_dir";
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::directory_artifact_port("out");
     cgraph::ParamSpec path;
     path.name = "path";
     path.dtype = "string";
@@ -226,13 +176,12 @@ class InputArtifactDirOp final : public cgraph::MemoryOperator {
     path.bindable = false;
     signature_.params["path"] = std::move(path);
     capability_.summary =
-        "List CSV files under a fixture directory as a Value manifest";
+        "Emit a directory Artifact for a fixture CSV folder";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "params.path → out={path,files:[...]}.";
+    usage_.connect = "params.path → out directory Artifact.";
     usage_.tune = "Point at a tiny fixture dir (2–3 csv).";
-    usage_.inspect =
-        "P0 returns JSON path list (not Artifact) for Runtime.execute tests.";
+    usage_.inspect = "DataRef uri + content_hash from make_dir_artifact.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
@@ -243,10 +192,11 @@ class InputArtifactDirOp final : public cgraph::MemoryOperator {
       throw std::invalid_argument("fx.input_artifact_dir: not a directory: " +
                                   dir.string());
     }
-    const auto files = list_csv_files(dir);
-    nlohmann::json manifest = {{"path", dir.string()},
-                               {"files", files_to_json(files)}};
-    return fx::wrap(signature_, {{"out", std::move(manifest)}});
+    // Path fingerprint is enough for fixture wiring; avoid full recursive
+    // content digest (can be heavy / fragile on Windows temp dirs).
+    const std::string hash = "fixture-dir:" + dir.lexically_normal().string();
+    return {
+        {"out", fx_typed::make_directory_artifact(dir.string(), hash)}};
   }
 };
 
@@ -254,22 +204,18 @@ class KalmanIterOp final : public cgraph::MemoryOperator {
  public:
   KalmanIterOp() {
     op_id_ = "fx.kalman_iter";
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["in"] = fx_typed::float_list_port("in");
+    auto Q = fx_typed::float_port("Q");
     Q.optional = true;
     signature_.inputs["Q"] = std::move(Q);
-    auto R = cgraph::make_port("R", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto R = fx_typed::float_port("R");
     R.optional = true;
     signature_.inputs["R"] = std::move(R);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["final_state"] =
-        cgraph::make_port("final_state", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["final_cov"] =
-        cgraph::make_port("final_cov", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["mean_innov"] =
-        cgraph::make_port("mean_innov", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_port("out");
+    signature_.outputs["final_state"] = fx_typed::float_port("final_state");
+    signature_.outputs["final_cov"] = fx_typed::float_port("final_cov");
+    signature_.outputs["mean_innov"] = fx_typed::float_port("mean_innov");
+    signature_.outputs["innovations"] = fx_typed::float_list_port("innovations");
     cgraph::ParamSpec q;
     q.name = "Q";
     q.dtype = "float";
@@ -279,41 +225,42 @@ class KalmanIterOp final : public cgraph::MemoryOperator {
     r.name = "R";
     r.default_value = 0.5;
     signature_.params["R"] = std::move(r);
-    capability_.summary = "Simplified 1D Kalman filter over a numeric series";
+    capability_.summary = "Simplified 1D Kalman filter over a float series";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire series (array or csv path string) + optional Q/R.";
+    usage_.connect = "Wire float_list series + optional Q/R floats.";
     usage_.tune = "F=H=1; scalar Q/R; x0=0, P0=1.";
-    usage_.inspect = "out has final_state, final_cov, innovations, mean_innov.";
+    usage_.inspect = "out aliases mean_innov; innovations is full series.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& in =
-        math_nd::require_input(inputs, "in", "fx.kalman_iter");
-    std::vector<double> zs;
-    if (in.is_string()) {
-      zs = read_csv_numbers(in.get<std::string>(), "fx.kalman_iter");
-    } else {
-      zs = parse_numeric_series(in, "fx.kalman_iter");
+    const auto zs = fx_typed::require_float_list(
+        fx_typed::require_obj(data_in, "in", "fx.kalman_iter"), "fx.kalman_iter",
+        "in");
+    double Q = 1.0;
+    double R = 0.5;
+    if (params.is_object()) {
+      if (params.contains("Q") && params["Q"].is_number()) {
+        Q = params["Q"].get<double>();
+      }
+      if (params.contains("R") && params["R"].is_number()) {
+        R = params["R"].get<double>();
+      }
     }
-    double Q = math_nd::param_number(params, "Q", 1.0);
-    double R = math_nd::param_number(params, "R", 0.5);
-    const auto qit = inputs.find("Q");
-    if (qit != inputs.end()) {
-      Q = math_nd::require_number(qit->second, "fx.kalman_iter", "Q");
+    if (data_in.count("Q") != 0) {
+      Q = fx_typed::require_float(data_in.at("Q"), "fx.kalman_iter", "Q");
     }
-    const auto rit = inputs.find("R");
-    if (rit != inputs.end()) {
-      R = math_nd::require_number(rit->second, "fx.kalman_iter", "R");
+    if (data_in.count("R") != 0) {
+      R = fx_typed::require_float(data_in.at("R"), "fx.kalman_iter", "R");
     }
     const KalmanResult kr = kalman_1d(zs, Q, R);
-    return fx::wrap(signature_, {{"out", kalman_result_json(kr)},
-            {"final_state", kr.final_state},
-            {"final_cov", kr.final_cov},
-            {"mean_innov", kr.mean_innov}});
+    return {{"out", fx_typed::make_number_float(kr.mean_innov)},
+            {"final_state", fx_typed::make_number_float(kr.final_state)},
+            {"final_cov", fx_typed::make_number_float(kr.final_cov)},
+            {"mean_innov", fx_typed::make_number_float(kr.mean_innov)},
+            {"innovations", fx_typed::make_float_list(kr.innovations)}};
   }
 };
 
@@ -321,25 +268,23 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
  public:
   MapChunkFilesOp() {
     op_id_ = "fx.map_chunk_files";
-    signature_.inputs["items"] =
-        cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto chunks = cgraph::make_port("chunks", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["items"] = fx_typed::directory_artifact_port("items");
+    auto chunks = fx_typed::directory_artifact_port("chunks");
     chunks.optional = true;
     signature_.inputs["chunks"] = std::move(chunks);
-    auto Q = cgraph::make_port("Q", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto files = fx_typed::string_list_port("files");
+    files.optional = true;
+    signature_.inputs["files"] = std::move(files);
+    auto Q = fx_typed::float_port("Q");
     Q.optional = true;
     signature_.inputs["Q"] = std::move(Q);
-    auto R = cgraph::make_port("R", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    auto R = fx_typed::float_port("R");
     R.optional = true;
     signature_.inputs["R"] = std::move(R);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["StatesDir"] =
-        cgraph::make_port("StatesDir", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["CovDir"] =
-        cgraph::make_port("CovDir", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["InnovList"] =
-        cgraph::make_port("InnovList", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_list_port("out");
+    signature_.outputs["StatesDir"] = fx_typed::float_list_port("StatesDir");
+    signature_.outputs["CovDir"] = fx_typed::float_list_port("CovDir");
+    signature_.outputs["InnovList"] = fx_typed::float_list_port("InnovList");
     cgraph::ParamSpec body;
     body.name = "body";
     body.dtype = "string";
@@ -351,20 +296,19 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
     ap.default_value = false;
     signature_.params["allow_partial"] = std::move(ap);
     capability_.summary =
-        "Map KalmanIter over CSV files listed by InputArtifactDir";
+        "Map KalmanIter over CSV files from a directory Artifact";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire items/chunks (+ Q,R); read StatesDir/CovDir/InnovList.";
-    usage_.tune = "body=KalmanIter (default); allow_partial for bad files.";
-    usage_.inspect = "Value lists stand in for artifact dirs in P0 tests.";
+    usage_.connect =
+        "Wire items Artifact (or files list[string]) + Q/R; read float lists.";
+    usage_.tune = "body=KalmanIter; allow_partial skips bad files as NaN.";
+    usage_.inspect =
+        "StatesDir/CovDir/InnovList are Value float_list stand-ins (P0).";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& items = math_nd::require_input_alias(
-        inputs, "items", "chunks", "fx.map_chunk_files");
     const std::string body =
         (params.is_object() && params.contains("body") &&
          params["body"].is_string())
@@ -374,48 +318,51 @@ class MapChunkFilesOp final : public cgraph::MemoryOperator {
       throw std::invalid_argument(
           "fx.map_chunk_files: only body=KalmanIter supported");
     }
+    std::vector<fs::path> files;
+    if (data_in.count("files") != 0) {
+      files = resolve_file_list(data_in.at("files"), "fx.map_chunk_files");
+    } else {
+      files = resolve_file_list(
+          require_alias(data_in, "items", "chunks", "fx.map_chunk_files"),
+          "fx.map_chunk_files");
+    }
     double Q = 1.0;
     double R = 0.5;
-    const auto qit = inputs.find("Q");
-    if (qit != inputs.end()) {
-      Q = math_nd::require_number(qit->second, "fx.map_chunk_files", "Q");
+    if (data_in.count("Q") != 0) {
+      Q = fx_typed::require_float(data_in.at("Q"), "fx.map_chunk_files", "Q");
     }
-    const auto rit = inputs.find("R");
-    if (rit != inputs.end()) {
-      R = math_nd::require_number(rit->second, "fx.map_chunk_files", "R");
+    if (data_in.count("R") != 0) {
+      R = fx_typed::require_float(data_in.at("R"), "fx.map_chunk_files", "R");
     }
     const bool allow_partial = param_bool(params, "allow_partial", false);
-    const auto files = resolve_file_list(items, "fx.map_chunk_files");
 
-    nlohmann::json states = nlohmann::json::array();
-    nlohmann::json covs = nlohmann::json::array();
-    nlohmann::json innovs = nlohmann::json::array();
-    nlohmann::json results = nlohmann::json::array();
+    std::vector<double> states;
+    std::vector<double> covs;
+    std::vector<double> innovs;
+    states.reserve(files.size());
+    covs.reserve(files.size());
+    innovs.reserve(files.size());
     for (std::size_t i = 0; i < files.size(); ++i) {
       try {
         const auto zs = read_csv_numbers(files[i], "fx.map_chunk_files");
         const KalmanResult kr = kalman_1d(zs, Q, R);
-        nlohmann::json one = kalman_result_json(kr);
-        one["file"] = files[i].string();
-        results.push_back(one);
         states.push_back(kr.final_state);
         covs.push_back(kr.final_cov);
         innovs.push_back(kr.mean_innov);
-      } catch (const std::exception& ex) {
+      } catch (const std::exception&) {
         if (!allow_partial) {
           throw;
         }
-        results.push_back(
-            nlohmann::json{{"error", ex.what()}, {"index", i}});
-        states.push_back(nullptr);
-        covs.push_back(nullptr);
-        innovs.push_back(nullptr);
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        states.push_back(nan);
+        covs.push_back(nan);
+        innovs.push_back(nan);
       }
     }
-    return fx::wrap(signature_, {{"out", std::move(results)},
-            {"StatesDir", std::move(states)},
-            {"CovDir", std::move(covs)},
-            {"InnovList", std::move(innovs)}});
+    return {{"out", fx_typed::make_float_list(innovs)},
+            {"StatesDir", fx_typed::make_float_list(states)},
+            {"CovDir", fx_typed::make_float_list(covs)},
+            {"InnovList", fx_typed::make_float_list(innovs)}};
   }
 };
 
@@ -423,52 +370,27 @@ class MergeArtifactDirsOp final : public cgraph::MemoryOperator {
  public:
   MergeArtifactDirsOp() {
     op_id_ = "fx.merge_artifact_dirs";
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto items = cgraph::make_port("items", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["in"] = fx_typed::float_list_port("in");
+    auto items = fx_typed::float_list_port("items");
     items.optional = true;
     signature_.inputs["items"] = std::move(items);
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["out"] = fx_typed::float_list_port("out");
     capability_.summary =
-        "Merge file-list / value-list artifact dir stand-ins into one list";
+        "Merge float_list Artifact-dir stand-ins (concat, skip NaN optional)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire in (list or nested lists); read flat out.";
-    usage_.tune = "P0: concatenates arrays; skips nulls.";
-    usage_.inspect = "Does not copy files; Value-plane merge for tests.";
+    usage_.connect = "Wire float_list in; read flat out.";
+    usage_.tune = "P0: concatenates list values.";
+    usage_.inspect = "Value-plane merge for fixture tests (not file copy).";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& in =
-        math_nd::require_input_alias(inputs, "in", "items",
-                                     "fx.merge_artifact_dirs");
-    nlohmann::json out = nlohmann::json::array();
-    auto append = [&](const nlohmann::json& v) {
-      if (v.is_null()) {
-        return;
-      }
-      if (v.is_array()) {
-        for (const auto& x : v) {
-          if (!x.is_null()) {
-            out.push_back(x);
-          }
-        }
-        return;
-      }
-      if (v.is_object() && v.contains("files") && v["files"].is_array()) {
-        for (const auto& x : v["files"]) {
-          out.push_back(x);
-        }
-        return;
-      }
-      out.push_back(v);
-    };
-    append(in);
-    return fx::wrap(signature_, {{"out", std::move(out)}});
+    const auto vals = fx_typed::require_float_list(
+        require_alias(data_in, "in", "items", "fx.merge_artifact_dirs"),
+        "fx.merge_artifact_dirs", "in");
+    return {{"out", fx_typed::make_float_list(vals)}};
   }
 };
 
@@ -476,45 +398,35 @@ class ListReduceMeanOp final : public cgraph::MemoryOperator {
  public:
   ListReduceMeanOp() {
     op_id_ = "fx.list_reduce_mean";
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    capability_.summary = "Mean of a numeric JSON list (skips nulls)";
+    signature_.inputs["in"] = fx_typed::float_list_port("in");
+    signature_.outputs["out"] = fx_typed::float_port("out");
+    capability_.summary = "Mean of a float_list (skips NaN)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "Wire numeric list in; read scalar out.";
+    usage_.connect = "Wire float_list in; read scalar out.";
     usage_.tune = "None.";
-    usage_.inspect = "Empty/all-null → error.";
+    usage_.inspect = "Empty/all-NaN → error.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json&, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& in =
-        math_nd::require_input(inputs, "in", "fx.list_reduce_mean");
-    if (!in.is_array()) {
-      throw std::invalid_argument(
-          "fx.list_reduce_mean: input must be a JSON array");
-    }
+    const auto vals = fx_typed::require_float_list(
+        fx_typed::require_obj(data_in, "in", "fx.list_reduce_mean"),
+        "fx.list_reduce_mean", "in");
     double sum = 0.0;
     int n = 0;
-    for (const auto& v : in) {
-      if (v.is_null()) {
+    for (double v : vals) {
+      if (std::isnan(v)) {
         continue;
       }
-      if (!v.is_number()) {
-        throw std::invalid_argument(
-            "fx.list_reduce_mean: non-numeric list entry");
-      }
-      sum += v.get<double>();
+      sum += v;
       ++n;
     }
     if (n == 0) {
       throw std::invalid_argument("fx.list_reduce_mean: empty list");
     }
-    return fx::wrap(signature_, {{"out", sum / static_cast<double>(n)}});
+    return {{"out", fx_typed::make_number_float(sum / static_cast<double>(n))}};
   }
 };
 

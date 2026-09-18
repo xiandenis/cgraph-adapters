@@ -277,5 +277,110 @@ inline cgraph::PortSpec vector_list_port(std::string name) {
                            type_vector_list(), number_sem());
 }
 
+inline cgraph::PortSpec matrix_list_port(std::string name) {
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           type_matrix_list(), number_sem());
+}
+
+inline std::vector<Eigen::MatrixXd> require_matrix_list(
+    const cgraph::DataObject& obj, std::string_view op,
+    std::string_view port) {
+  if (obj.type_id != type_matrix_list()) {
+    throw std::invalid_argument(std::string(op) + ": '" + std::string(port) +
+                                "' must be list[fx.type.matrix]");
+  }
+  if (obj.payload.kind() != cgraph::Payload::Kind::List) {
+    throw std::invalid_argument(std::string(op) + ": '" + std::string(port) +
+                                "' matrix list payload must be list");
+  }
+  std::vector<Eigen::MatrixXd> out;
+  out.reserve(obj.payload.as_list().size());
+  for (const auto& item : obj.payload.as_list()) {
+    cgraph::DataObject tmp =
+        cgraph::make_data_object(type_matrix(), number_sem(), item);
+    out.push_back(require_matrix(tmp, op, port));
+  }
+  return out;
+}
+
+inline cgraph::DataObject make_matrix_list(
+    const std::vector<Eigen::MatrixXd>& mats) {
+  std::vector<cgraph::Payload> items;
+  items.reserve(mats.size());
+  for (const auto& m : mats) {
+    items.push_back(make_matrix(m).payload);
+  }
+  return cgraph::make_data_object(type_matrix_list(), number_sem(),
+                                  cgraph::Payload::list(std::move(items)));
+}
+
+inline cgraph::PortSpec directory_artifact_port(std::string name) {
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Artifact,
+                           cgraph::type_ids::untyped(),
+                           cgraph::SemanticSpec::of("cgraph.semantic.directory"));
+}
+
+inline cgraph::PortSpec string_list_port(std::string name) {
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           type_string_list(),
+                           cgraph::SemanticSpec::of("cgraph.semantic.text"));
+}
+
+inline std::vector<std::string> require_string_list(const cgraph::DataObject& obj,
+                                                    std::string_view op,
+                                                    std::string_view port) {
+  if (obj.payload.kind() != cgraph::Payload::Kind::List) {
+    throw std::invalid_argument(std::string(op) + ": '" + std::string(port) +
+                                "' must be list[string]");
+  }
+  std::vector<std::string> out;
+  out.reserve(obj.payload.as_list().size());
+  for (const auto& item : obj.payload.as_list()) {
+    if (item.kind() != cgraph::Payload::Kind::String) {
+      throw std::invalid_argument(std::string(op) + ": '" + std::string(port) +
+                                  "' list elements must be string");
+    }
+    out.push_back(item.as_string());
+  }
+  return out;
+}
+
+inline cgraph::DataObject make_string_list(const std::vector<std::string>& values) {
+  std::vector<cgraph::Payload> items;
+  items.reserve(values.size());
+  for (const auto& s : values) {
+    items.push_back(cgraph::Payload::string(s));
+  }
+  return cgraph::make_data_object(
+      type_string_list(), cgraph::SemanticSpec::of("cgraph.semantic.text"),
+      cgraph::Payload::list(std::move(items)));
+}
+
+inline cgraph::DataObject make_directory_artifact(const std::string& path,
+                                                  const std::string& content_hash) {
+  cgraph::DataRef ref;
+  ref.uri = path;
+  ref.content_hash = content_hash;
+  ref.is_dir = true;
+  return cgraph::make_artifact_object(
+      cgraph::type_ids::untyped(),
+      cgraph::SemanticSpec::of("cgraph.semantic.directory"), std::move(ref));
+}
+
+inline bool is_directory_artifact(const cgraph::DataObject& obj) {
+  return obj.payload.kind() == cgraph::Payload::Kind::DataRef &&
+         obj.payload.as_data_ref().is_dir;
+}
+
+inline std::string require_directory_uri(const cgraph::DataObject& obj,
+                                         std::string_view op,
+                                         std::string_view port) {
+  if (!is_directory_artifact(obj)) {
+    throw std::invalid_argument(std::string(op) + ": '" + std::string(port) +
+                                "' must be directory Artifact");
+  }
+  return obj.payload.as_data_ref().uri;
+}
+
 }  // namespace fx_typed
 }  // namespace fixture

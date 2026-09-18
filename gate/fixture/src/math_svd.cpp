@@ -1,6 +1,7 @@
 #include "cgraph/ops.hpp"
-#include "fx_data.hpp"
-#include "math_nd_util.hpp"
+#include "fx_typed.hpp"
+
+#include <Eigen/SVD>
 
 #include <cmath>
 #include <memory>
@@ -10,21 +11,30 @@
 namespace fixture {
 namespace {
 
+const cgraph::DataObject& require_matrix_alias(
+    const std::map<std::string, cgraph::DataObject>& data_in, const char* primary,
+    const char* alias, const char* op) {
+  if (data_in.count(primary) != 0) {
+    return data_in.at(primary);
+  }
+  if (data_in.count(alias) != 0) {
+    return data_in.at(alias);
+  }
+  throw std::invalid_argument(std::string(op) + ": missing '" + primary +
+                              "' (or alias '" + alias + "')");
+}
+
 class SvdOp final : public cgraph::MemoryOperator {
  public:
   SvdOp() {
     op_id_ = "fx.svd";
-    signature_.inputs["A"] =
-        cgraph::make_port("A", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto in_alias = cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["A"] = fx_typed::matrix_port("A");
+    auto in_alias = fx_typed::matrix_port("in");
     in_alias.optional = true;
     signature_.inputs["in"] = std::move(in_alias);
-    signature_.outputs["U"] =
-        cgraph::make_port("U", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["S"] =
-        cgraph::make_port("S", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["Vt"] =
-        cgraph::make_port("Vt", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.outputs["U"] = fx_typed::matrix_port("U");
+    signature_.outputs["S"] = fx_typed::vector_port("S");
+    signature_.outputs["Vt"] = fx_typed::matrix_port("Vt");
     capability_.summary = "Thin SVD: A = U * diag(S) * Vt (all outs always)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -36,18 +46,13 @@ class SvdOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& a_json =
-        math_nd::require_input_alias(inputs, "A", "in", "fx.svd");
-    const Eigen::MatrixXd A = math_nd::parse_matrix(a_json, "fx.svd", "A");
+    const Eigen::MatrixXd A = fx_typed::require_matrix(
+        require_matrix_alias(data_in, "A", "in", "fx.svd"), "fx.svd", "A");
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(
         A, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    const Eigen::MatrixXd U = svd.matrixU();
-    const Eigen::VectorXd S = svd.singularValues();
-    const Eigen::MatrixXd Vt = svd.matrixV().transpose();
-    return fx::wrap(signature_, {{"U", math_nd::make_nd(U)},
-            {"S", math_nd::make_vec_nd(S)},
-            {"Vt", math_nd::make_nd(Vt)}});
+    return {{"U", fx_typed::make_matrix(svd.matrixU())},
+            {"S", fx_typed::make_vector(svd.singularValues())},
+            {"Vt", fx_typed::make_matrix(svd.matrixV().transpose())}};
   }
 };
 
@@ -55,12 +60,9 @@ class SliceTopKOp final : public cgraph::MemoryOperator {
  public:
   SliceTopKOp() {
     op_id_ = "fx.slice_topk";
-    signature_.inputs["mat"] =
-        cgraph::make_port("mat", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.inputs["k"] =
-        cgraph::make_port("k", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["mat"] = fx_typed::matrix_port("mat");
+    signature_.inputs["k"] = fx_typed::int_port("k");
+    signature_.outputs["out"] = fx_typed::matrix_port("out");
     capability_.summary = "Take first k rows of a matrix (e.g. Vt top-k)";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -72,17 +74,16 @@ class SliceTopKOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const Eigen::MatrixXd mat =
-        math_nd::parse_matrix(math_nd::require_input(inputs, "mat", "fx.slice_topk"),
-                              "fx.slice_topk", "mat");
-    const int k = math_nd::require_positive_int(
-        math_nd::require_input(inputs, "k", "fx.slice_topk"), "fx.slice_topk",
-        "k");
-    if (k > mat.rows()) {
-      throw std::invalid_argument("fx.slice_topk: k exceeds matrix rows");
+    const Eigen::MatrixXd mat = fx_typed::require_matrix(
+        fx_typed::require_obj(data_in, "mat", "fx.slice_topk"), "fx.slice_topk",
+        "mat");
+    const int k = static_cast<int>(fx_typed::require_int(
+        fx_typed::require_obj(data_in, "k", "fx.slice_topk"), "fx.slice_topk",
+        "k"));
+    if (k <= 0 || k > mat.rows()) {
+      throw std::invalid_argument("fx.slice_topk: k out of range");
     }
-    return fx::wrap(signature_, {{"out", math_nd::make_nd(mat.topRows(k))}});
+    return {{"out", fx_typed::make_matrix(mat.topRows(k))}};
   }
 };
 
@@ -90,15 +91,12 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
  public:
   VarianceRatioOp() {
     op_id_ = "fx.variance_ratio";
-    signature_.inputs["s"] =
-        cgraph::make_port("s", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    auto S_alias = cgraph::make_port("S", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["s"] = fx_typed::vector_port("s");
+    auto S_alias = fx_typed::vector_port("S");
     S_alias.optional = true;
     signature_.inputs["S"] = std::move(S_alias);
-    signature_.inputs["k"] =
-        cgraph::make_port("k", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["k"] = fx_typed::int_port("k");
+    signature_.outputs["out"] = fx_typed::float_port("out");
     capability_.summary = "Explained variance ratio from singular values";
     capability_.tags = {"math", "fixture"};
     cost_.cost_class = "cpu.tiny";
@@ -110,16 +108,14 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in, const nlohmann::json&,
       const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json& s_json =
-        math_nd::require_input_alias(inputs, "s", "S", "fx.variance_ratio");
-    const Eigen::VectorXd s =
-        math_nd::parse_vector(s_json, "fx.variance_ratio", "s");
-    const int k = math_nd::require_positive_int(
-        math_nd::require_input(inputs, "k", "fx.variance_ratio"),
-        "fx.variance_ratio", "k");
-    if (k > s.size()) {
-      throw std::invalid_argument("fx.variance_ratio: k exceeds |S|");
+    const Eigen::VectorXd s = fx_typed::require_vector(
+        require_matrix_alias(data_in, "s", "S", "fx.variance_ratio"),
+        "fx.variance_ratio", "s");
+    const int k = static_cast<int>(fx_typed::require_int(
+        fx_typed::require_obj(data_in, "k", "fx.variance_ratio"),
+        "fx.variance_ratio", "k"));
+    if (k <= 0 || k > s.size()) {
+      throw std::invalid_argument("fx.variance_ratio: k out of range");
     }
     double num = 0.0;
     double den = 0.0;
@@ -133,7 +129,7 @@ class VarianceRatioOp final : public cgraph::MemoryOperator {
     if (!(den > 0.0) || !std::isfinite(den)) {
       throw std::invalid_argument("fx.variance_ratio: zero or non-finite |S|");
     }
-    return fx::wrap(signature_, {{"out", num / den}});
+    return {{"out", fx_typed::make_number_float(num / den)}};
   }
 };
 

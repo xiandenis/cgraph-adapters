@@ -136,6 +136,8 @@ cgraph_fixture_add_test(cgraph_fixture_test_math_case01
   gate/fixture/tests/test_math_case01.cpp)
 cgraph_fixture_add_test(cgraph_fixture_test_math_cases
   gate/fixture/tests/test_math_cases_02_05.cpp)
+cgraph_fixture_add_test(cgraph_fixture_test_math_cases_wave2
+  gate/fixture/tests/test_math_cases_06_10.cpp)
 
 option(CGRAPH_ADAPTERS_WITH_RTR "Wrap RTR leaf algorithms" ON)
 if(CGRAPH_ADAPTERS_WITH_RTR)

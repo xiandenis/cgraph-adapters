@@ -69,10 +69,8 @@ class PadOp final : public cgraph::MemoryOperator {
  public:
   PadOp() {
     op_id_ = "fx.pad";
-    signature_.inputs["in"] =
-        cgraph::make_port("in", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
-    signature_.outputs["out"] =
-        cgraph::make_port("out", cgraph::PortKind::Value, cgraph::type_ids::tensor(), cgraph::SemanticSpec::of("cgraph.semantic.number"));
+    signature_.inputs["in"] = fx_typed::matrix_port("in");
+    signature_.outputs["out"] = fx_typed::matrix_port("out");
     cgraph::ParamSpec ph;
     ph.name = "pad_h";
     ph.dtype = "int";
@@ -84,16 +82,16 @@ class PadOp final : public cgraph::MemoryOperator {
     capability_.summary = "P0 pad; pad=0 is identity";
     capability_.tags = {"conv", "fixture"};
     cost_.cost_class = "cpu.tiny";
-    usage_.connect = "ndarray JSON in → out.";
-    usage_.tune = "pad_h/pad_w. Zero is identity (digest unchanged).";
+    usage_.connect = "Wire matrix in; read matrix out.";
+    usage_.tune = "pad_h/pad_w. Zero is identity.";
     usage_.inspect = "P0 only implements pad=0 copy.";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& data_in,
       const nlohmann::json& params, const cgraph::ExecContext&) const override {
-    const auto inputs = fx::unwrap(data_in);
-    const nlohmann::json image = require_nd(inputs, "in", "fx.pad");
+    const Eigen::MatrixXd image = fx_typed::require_matrix(
+        fx_typed::require_obj(data_in, "in", "fx.pad"), "fx.pad", "in");
     int pad_h = 0;
     int pad_w = 0;
     if (params.is_object()) {
@@ -107,7 +105,7 @@ class PadOp final : public cgraph::MemoryOperator {
     if (pad_h != 0 || pad_w != 0) {
       throw std::invalid_argument("fx.pad: P0 only supports pad_h=pad_w=0");
     }
-    return fx::wrap(signature_, {{"out", image}});
+    return {{"out", fx_typed::make_matrix(image)}};
   }
 };
 

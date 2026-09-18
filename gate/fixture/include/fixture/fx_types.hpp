@@ -26,4 +26,8 @@ inline cgraph::TypeId type_matrix_list() {
   return cgraph::type_ids::list(type_matrix());
 }
 
+inline cgraph::TypeId type_string_list() {
+  return cgraph::type_ids::list(cgraph::type_ids::string());
+}
+
 }  // namespace fixture
