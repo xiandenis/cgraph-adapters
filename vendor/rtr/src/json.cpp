@@ -1,8 +1,11 @@
 #include "rtr/json.hpp"
 
+#include "cgraph/artifact.hpp"
+#include "cgraph/data_helpers.hpp"
 #include "cgraph/type_catalog.hpp"
 #include "cgraph/type_pack_yaml.hpp"
 
+#include <cstdint>
 #include <map>
 #include <stdexcept>
 #include <unordered_map>
@@ -160,12 +163,27 @@ cgraph::PortSpec align_port(std::string name) {
                            cgraph::SemanticSpec::of("rtr.semantic.align_result"));
 }
 
+cgraph::PortSpec report_port(std::string name) {
+  return cgraph::make_port(
+      std::move(name), cgraph::PortKind::Value,
+      cgraph::TypeId::parse("rtr.type.registration_report"),
+      cgraph::SemanticSpec::of("rtr.semantic.registration_report"));
+}
+
+cgraph::PortSpec path_port(std::string name) {
+  return cgraph::make_port(std::move(name), cgraph::PortKind::Value,
+                           cgraph::type_ids::string(),
+                           cgraph::SemanticSpec::of("cgraph.semantic.text"));
+}
+
 cgraph::PortSpec scalar_float_port(std::string name) {
   static const std::unordered_map<std::string, const char*> kFloatSem{
       {"rms", "rtr.semantic.rms"},
       {"final_rms", "rtr.semantic.final_rms"},
       {"similarity", "rtr.semantic.similarity"},
       {"weight", "rtr.semantic.weight"},
+      {"overlap_ratio", "rtr.semantic.overlap_ratio"},
+      {"voxel_size", "rtr.semantic.voxel_size"},
   };
   const auto it = kFloatSem.find(name);
   if (it == kFloatSem.end()) {
@@ -181,6 +199,9 @@ cgraph::PortSpec scalar_int_port(std::string name) {
       {"feature_num", "rtr.semantic.feature_num"},
       {"state", "rtr.semantic.state"},
       {"auto_reg", "rtr.semantic.auto_reg"},
+      {"point_number", "rtr.semantic.point_count"},
+      {"overlap_count", "rtr.semantic.overlap_count"},
+      {"rms_sample_count", "rtr.semantic.rms_sample_count"},
   };
   const auto it = kIntSem.find(name);
   if (it == kIntSem.end()) {
@@ -297,6 +318,39 @@ Ddx::AlignResult align_result_from_data(const cgraph::DataObject& obj) {
     a.information_ = Eigen::Matrix<double, 6, 6>::Identity();
   }
   return a;
+}
+
+cgraph::DataObject cloud_artifact_from_path(const std::filesystem::path& path) {
+  const auto abs = std::filesystem::weakly_canonical(path);
+  const cgraph::Artifact art = cgraph::make_file_artifact(abs);
+  cgraph::DataRef ref;
+  ref.uri = art.location.string();
+  ref.content_hash = art.content_hash;
+  ref.is_dir = art.is_dir;
+  return cgraph::make_artifact_object(
+      cgraph::TypeId::parse("rtr.type.point_cloud"),
+      cgraph::SemanticSpec::of("rtr.semantic.point_cloud"), std::move(ref));
+}
+
+cgraph::DataObject registration_report_to_data(float overlap_ratio, double rms,
+                                               std::size_t overlap_count,
+                                               std::size_t rms_sample_count,
+                                               bool rms_query_from_target) {
+  std::map<std::string, cgraph::Payload> fields;
+  fields.emplace("overlap_ratio",
+                 cgraph::Payload::floating(static_cast<double>(overlap_ratio)));
+  fields.emplace("rms", cgraph::Payload::floating(rms));
+  fields.emplace("overlap_count",
+                 cgraph::Payload::integer(static_cast<std::int64_t>(overlap_count)));
+  fields.emplace(
+      "rms_sample_count",
+      cgraph::Payload::integer(static_cast<std::int64_t>(rms_sample_count)));
+  fields.emplace("rms_query_from_target",
+                 cgraph::Payload::boolean(rms_query_from_target));
+  return cgraph::make_data_object(
+      cgraph::TypeId::parse("rtr.type.registration_report"),
+      cgraph::SemanticSpec::of("rtr.semantic.registration_report"),
+      cgraph::Payload::record(std::move(fields)));
 }
 
 }  // namespace rtr

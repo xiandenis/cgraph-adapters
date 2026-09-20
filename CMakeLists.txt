@@ -155,6 +155,9 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
     vendor/rtr/src/align_result_unpack.cpp
     vendor/rtr/src/rough_global_reg.cpp
     vendor/rtr/src/fine_registration.cpp
+    vendor/rtr/src/point_cloud_load.cpp
+    vendor/rtr/src/registration_initializer.cpp
+    vendor/rtr/src/registration_report.cpp
   )
   target_include_directories(cgraph_rtr_ops PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/vendor/rtr/include>
@@ -165,6 +168,9 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
     nlohmann_json::nlohmann_json
     real_time_registration::rough_global_reg
     real_time_registration::fine_registration
+    real_time_registration::point_cloud_io
+    real_time_registration::registration_initializer
+    real_time_registration::registration_report
   )
   if(MSVC)
     target_compile_options(cgraph_rtr_ops PUBLIC /utf-8)
@@ -216,6 +222,7 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
   cgraph_rtr_add_test(cgraph_rtr_test_json vendor/rtr/tests/test_json.cpp)
   cgraph_rtr_add_test(cgraph_rtr_test_unpack vendor/rtr/tests/test_unpack.cpp)
   cgraph_rtr_add_test(cgraph_rtr_test_rough_fine vendor/rtr/tests/test_rough_fine.cpp)
+  cgraph_rtr_add_test(cgraph_rtr_test_mainchain vendor/rtr/tests/test_mainchain.cpp)
 
   add_executable(cgraph_rtr_test_wire vendor/rtr/tests/test_wire.cpp)
   target_include_directories(cgraph_rtr_test_wire PRIVATE

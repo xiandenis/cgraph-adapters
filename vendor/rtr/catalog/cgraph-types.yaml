@@ -8,6 +8,8 @@ semantics:
     applies_to: [rtr.type.align_result]
   - semantic_id: rtr.semantic.information
     applies_to: [rtr.type.information_matrix]
+  - semantic_id: rtr.semantic.registration_report
+    applies_to: [rtr.type.registration_report]
   - semantic_id: rtr.semantic.rms
     applies_to: [cgraph.type.float]
   - semantic_id: rtr.semantic.final_rms
@@ -16,11 +18,21 @@ semantics:
     applies_to: [cgraph.type.float]
   - semantic_id: rtr.semantic.weight
     applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.overlap_ratio
+    applies_to: [cgraph.type.float]
+  - semantic_id: rtr.semantic.voxel_size
+    applies_to: [cgraph.type.float]
   - semantic_id: rtr.semantic.feature_num
     applies_to: [cgraph.type.int]
   - semantic_id: rtr.semantic.state
     applies_to: [cgraph.type.int]
   - semantic_id: rtr.semantic.auto_reg
+    applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.point_count
+    applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.overlap_count
+    applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.rms_sample_count
     applies_to: [cgraph.type.int]
 types:
   - type_id: rtr.type.point_cloud
@@ -49,3 +61,13 @@ types:
       - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
       - {name: auto_reg, type_id: cgraph.type.int, semantic_id: rtr.semantic.auto_reg, required: true}
       - {name: information, type_id: rtr.type.information_matrix, semantic_id: rtr.semantic.information, required: true}
+  - type_id: rtr.type.registration_report
+    form: record
+    semantics: [rtr.semantic.registration_report]
+    display: {family: record, label: registration_report}
+    fields:
+      - {name: overlap_ratio, type_id: cgraph.type.float, semantic_id: rtr.semantic.overlap_ratio, required: true}
+      - {name: rms, type_id: cgraph.type.float, semantic_id: rtr.semantic.rms, required: true}
+      - {name: overlap_count, type_id: cgraph.type.int, semantic_id: rtr.semantic.overlap_count, required: true}
+      - {name: rms_sample_count, type_id: cgraph.type.int, semantic_id: rtr.semantic.rms_sample_count, required: true}
+      - {name: rms_query_from_target, type_id: cgraph.type.bool, semantic_id: cgraph.semantic.predicate, required: true}

@@ -21,13 +21,18 @@ REM or: set RTR_INSTALL_PARTY=... && sync-rtr-install.cmd
 
 Then `find_package(real_time_registration CONFIG REQUIRED)`.
 
-## First-slice operators (`CGRAPH_ADAPTERS_WITH_RTR`)
+## Operators (`CGRAPH_ADAPTERS_WITH_RTR`)
 
-| op_id | RTR type | Notes |
+| op_id | RTR leaf | Notes |
 |-------|----------|--------|
-| `rtr.rough_global_reg` | `Ddx::RoughGlobalReg` | File Artifact in; AlignResult JSON out |
-| `rtr.fine_registration` | `Ddx::FineRegistration` | Optional 4×4 `guess`, default I |
-| `rtr.align_result.unpack` | (none) | Split AlignResult JSON fields |
+| `rtr.point_cloud.load` | `::point_cloud_io` | Path → `rtr.type.point_cloud` **Artifact** (file ref; not in-graph memory) |
+| `rtr.registration_initializer` | `::registration_initializer` | Writes Root/subvoxel under `work_dir`; emits processed Artifact + voxel_size |
+| `rtr.rough_global_reg` | `::rough_global_reg` | File Artifact in; typed `align_result` out |
+| `rtr.fine_registration` | `::fine_registration` | Optional 4×4 `guess`, default I |
+| `rtr.registration_report` | `::registration_report` | Two clouds + matrix → typed `registration_report` |
+| `rtr.align_result.unpack` | (none) | Split AlignResult record fields |
+
+**Payload model:** Artifact-first. Point clouds stay file refs on the graph; algorithms load inside `execute`.
 
 CMake: `-DCGRAPH_ADAPTERS_WITH_RTR=ON` (default). Plugin name: `cgraph_rtr.dll` / `cgraph_rtr.so`.
 Do **not** wrap `RealTimeRegistrationSession` / `RealTimeManager` here.
@@ -39,3 +44,4 @@ Do **not** wrap `RealTimeRegistrationSession` / `RealTimeManager` here.
 - Do **not** copy the `real_time_registration` git tree into LidarWorkFlow2 / cgraph-adapters / cgraph-kernel / cgraph-studio.
 - Do **not** vendor algorithm `.cpp` sources under `vendor/rtr/`.
 - Do **not** treat in-workspace RTR source builds as the default dependency path.
+- Do **not** link `real_time_manager` / umbrella `::real_time_registration`.

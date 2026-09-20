@@ -24,10 +24,18 @@ cgraph::SemanticSpec rigid_transform_semantic();
 cgraph::PortSpec cloud_port(std::string name);
 cgraph::PortSpec matrix_port(std::string name, bool optional = false);
 cgraph::PortSpec align_port(std::string name);
+cgraph::PortSpec report_port(std::string name);
+cgraph::PortSpec path_port(std::string name);
 cgraph::PortSpec scalar_float_port(std::string name);
 cgraph::PortSpec scalar_int_port(std::string name);
 cgraph::PortSpec scalar_string_port(std::string name);
 cgraph::PortSpec information_port(std::string name);
+
+cgraph::DataObject cloud_artifact_from_path(const std::filesystem::path& path);
+cgraph::DataObject registration_report_to_data(float overlap_ratio, double rms,
+                                               std::size_t overlap_count,
+                                               std::size_t rms_sample_count,
+                                               bool rms_query_from_target);
 
 nlohmann::json matrix4d_to_json(const Eigen::Matrix4d& m);
 Eigen::Matrix4d matrix4d_from_json(const nlohmann::json& j);
