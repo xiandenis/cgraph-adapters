@@ -25,17 +25,23 @@ Then `find_package(real_time_registration CONFIG REQUIRED)`.
 
 | op_id | RTR leaf | Notes |
 |-------|----------|--------|
-| `rtr.point_cloud.load` | `::point_cloud_io` | Path → `rtr.type.point_cloud` **Artifact** (file ref; not in-graph memory) |
+| `rtr.point_cloud.load` | `::point_cloud_io` | Path → `rtr.type.point_cloud` **File** realisation (Artifact DataRef) |
+| `rtr.point_cloud.to_buffer` / `to_file` | `::point_cloud_io` + codec | Explicit File↔Buffer materialize (`rtr.codec.point_xyz_f32`) |
 | `rtr.angle_downsample` | `AngleDownsample` (via initializer lib) | Angular depth pick; writes sidecar PCD |
 | `rtr.voxel_medoid_downsample` | `::octree` `downsampleMedoid` | Hash-voxel true Medoid; writes sidecar PCD |
 | `rtr.resolution_estimate` | `::resolution_estimate` | Emits `voxel_size` float (no cloud write) |
+| `rtr.align_result.save` / `load` | `::registration_type` AlignResultIO | Value ↔ JSON file Artifact |
+| `rtr.lidar_frame.save` / `load` | `::registration_type` LidarFrameIO | Isomorphic `rtr.type.lidar_frame` Value ↔ JSON (+ file Artifact) |
+| `rtr.global_matrix.save` / `load` | `::global_matrix_file` | Station→global 4×4 table ↔ JSON |
 | `rtr.registration_initializer` | `::registration_initializer` | Writes Root/subvoxel under `work_dir`; emits processed Artifact + voxel_size |
 | `rtr.rough_global_reg` | `::rough_global_reg` | File Artifact in; typed `align_result` out |
 | `rtr.fine_registration` | `::fine_registration` | Optional 4×4 `guess`, default I |
 | `rtr.registration_report` | `::registration_report` | Two clouds + matrix → typed `registration_report` |
 | `rtr.align_result.unpack` | (none) | Split AlignResult record fields |
 
-**Payload model:** Artifact-first. Point clouds stay file refs on the graph; algorithms load inside `execute`.
+**Payload model:** Artifact-first for File clouds; Buffer uses Opaque + `rtr.codec.point_xyz_f32` (LE `uint64` count + `count×3` float32 XYZ). Algorithms that only accept File keep `cloud_port` (`accepts=[file]`). Do not silently promote Frame paths to Buffer.
+
+**Codec `rtr.codec.point_xyz_f32` layout:** little-endian; `uint64_t n`; then `n` triples of `float` (x,y,z). No pointers in Opaque.
 
 CMake: `-DCGRAPH_ADAPTERS_WITH_RTR=ON` (default). Plugin name: `cgraph_rtr.dll` / `cgraph_rtr.so`.
 Do **not** wrap `RealTimeRegistrationSession` / `RealTimeManager` here.

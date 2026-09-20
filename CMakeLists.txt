@@ -161,6 +161,10 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
     vendor/rtr/src/angle_downsample.cpp
     vendor/rtr/src/voxel_medoid_downsample.cpp
     vendor/rtr/src/resolution_estimate.cpp
+    vendor/rtr/src/align_result_io.cpp
+    vendor/rtr/src/lidar_frame_io.cpp
+    vendor/rtr/src/global_matrix_io.cpp
+    vendor/rtr/src/point_cloud_materialize.cpp
   )
   target_include_directories(cgraph_rtr_ops PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/vendor/rtr/include>
@@ -176,6 +180,8 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
     real_time_registration::registration_report
     real_time_registration::octree
     real_time_registration::resolution_estimate
+    real_time_registration::registration_type
+    real_time_registration::global_matrix_file
   )
   if(MSVC)
     target_compile_options(cgraph_rtr_ops PUBLIC /utf-8)
@@ -229,6 +235,7 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
   cgraph_rtr_add_test(cgraph_rtr_test_rough_fine vendor/rtr/tests/test_rough_fine.cpp)
   cgraph_rtr_add_test(cgraph_rtr_test_mainchain vendor/rtr/tests/test_mainchain.cpp)
   cgraph_rtr_add_test(cgraph_rtr_test_preprocess vendor/rtr/tests/test_preprocess.cpp)
+  cgraph_rtr_add_test(cgraph_rtr_test_localize_io vendor/rtr/tests/test_localize_io.cpp)
 
   add_executable(cgraph_rtr_test_wire vendor/rtr/tests/test_wire.cpp)
   target_include_directories(cgraph_rtr_test_wire PRIVATE

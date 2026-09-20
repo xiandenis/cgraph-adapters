@@ -34,12 +34,44 @@ semantics:
     applies_to: [cgraph.type.int]
   - semantic_id: rtr.semantic.rms_sample_count
     applies_to: [cgraph.type.int]
+  - semantic_id: rtr.semantic.align_result_file
+    applies_to: [rtr.type.align_result_file]
+  - semantic_id: rtr.semantic.lidar_frame_file
+    applies_to: [rtr.type.lidar_frame_file]
+  - semantic_id: rtr.semantic.lidar_frame
+    applies_to: [rtr.type.lidar_frame]
+  - semantic_id: rtr.semantic.voxel_root
+    applies_to: [rtr.type.voxel_root]
+  - semantic_id: rtr.semantic.sub_voxel
+    applies_to: [rtr.type.sub_voxel]
+  - semantic_id: rtr.semantic.global_matrix_file
+    applies_to: [rtr.type.global_matrix_file]
+  - semantic_id: rtr.semantic.station_global_pose
+    applies_to: [rtr.type.station_global_pose]
+  - semantic_id: rtr.semantic.global_matrix_table
+    applies_to: ["cgraph.type.list[rtr.type.station_global_pose]"]
 types:
   - type_id: rtr.type.point_cloud
     form: ref
     formats: [pcd, ply, las]
+    allowed_realisations: [file, buffer]
     semantics: [rtr.semantic.point_cloud]
     display: {family: cloud, label: point_cloud}
+  - type_id: rtr.type.align_result_file
+    form: ref
+    formats: [json]
+    semantics: [rtr.semantic.align_result_file]
+    display: {family: document, label: align_result_file}
+  - type_id: rtr.type.lidar_frame_file
+    form: ref
+    formats: [json]
+    semantics: [rtr.semantic.lidar_frame_file]
+    display: {family: document, label: lidar_frame_file}
+  - type_id: rtr.type.global_matrix_file
+    form: ref
+    formats: [json]
+    semantics: [rtr.semantic.global_matrix_file]
+    display: {family: document, label: global_matrix_file}
   - type_id: rtr.type.information_matrix
     form: tensor
     tensor: {dtype: f64, shape: [6, 6]}
@@ -71,3 +103,53 @@ types:
       - {name: overlap_count, type_id: cgraph.type.int, semantic_id: rtr.semantic.overlap_count, required: true}
       - {name: rms_sample_count, type_id: cgraph.type.int, semantic_id: rtr.semantic.rms_sample_count, required: true}
       - {name: rms_query_from_target, type_id: cgraph.type.bool, semantic_id: cgraph.semantic.predicate, required: true}
+  - type_id: rtr.type.station_global_pose
+    form: record
+    semantics: [rtr.semantic.station_global_pose]
+    display: {family: record, label: station_global_pose}
+    fields:
+      - {name: name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: matrix, type_id: cgraph.type.matrix.r4c4.f64, semantic_id: cgraph.semantic.rigid_transform, required: true}
+  - type_id: rtr.type.voxel_root
+    form: record
+    semantics: [rtr.semantic.voxel_root]
+    display: {family: record, label: voxel_root}
+    fields:
+      - {name: name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: cloud_path, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: normal_path, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
+      - {name: point_number, type_id: cgraph.type.int, semantic_id: rtr.semantic.point_count, required: true}
+      - {name: is_raw_input, type_id: cgraph.type.bool, semantic_id: cgraph.semantic.predicate, required: true}
+  - type_id: rtr.type.sub_voxel
+    form: record
+    semantics: [rtr.semantic.sub_voxel]
+    display: {family: record, label: sub_voxel}
+    fields:
+      - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
+      - {name: name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: point_number, type_id: cgraph.type.int, semantic_id: rtr.semantic.point_count, required: true}
+      - {name: voxel_size, type_id: cgraph.type.float, semantic_id: rtr.semantic.voxel_size, required: true}
+  - type_id: rtr.type.lidar_frame
+    form: record
+    semantics: [rtr.semantic.lidar_frame]
+    display: {family: record, label: lidar_frame}
+    fields:
+      - {name: name, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: stamp, type_id: cgraph.type.float, semantic_id: cgraph.semantic.number, required: true}
+      - {name: las_fn, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: normal_fn, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: json, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: info_folder, type_id: cgraph.type.string, semantic_id: cgraph.semantic.text, required: true}
+      - {name: sensor, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
+      - {name: altimeter, type_id: cgraph.type.float, semantic_id: cgraph.semantic.number, required: true}
+      - {name: gps, type_id: "cgraph.type.list[cgraph.type.float]", semantic_id: cgraph.semantic.number, required: true}
+      - {name: angle_resolution, type_id: cgraph.type.int, semantic_id: cgraph.semantic.count, required: true}
+      - {name: global_matrix, type_id: cgraph.type.matrix.r4c4.f64, semantic_id: cgraph.semantic.rigid_transform, required: true}
+      - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
+      - {name: point_number, type_id: cgraph.type.int, semantic_id: rtr.semantic.point_count, required: true}
+      - {name: scene_scale, type_id: cgraph.type.float, semantic_id: cgraph.semantic.number, required: true}
+      - {name: voxel_size, type_id: cgraph.type.float, semantic_id: rtr.semantic.voxel_size, required: true}
+      - {name: voxel_scene_class, type_id: cgraph.type.int, semantic_id: cgraph.semantic.count, required: true}
+      - {name: root, type_id: rtr.type.voxel_root, semantic_id: rtr.semantic.voxel_root, required: true}
+      - {name: subvoxel_vec, type_id: "cgraph.type.list[rtr.type.sub_voxel]", semantic_id: rtr.semantic.sub_voxel, required: true}
