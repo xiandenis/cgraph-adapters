@@ -1,5 +1,6 @@
 #include "check.hpp"
 #include "pcd_io.hpp"
+#include "rtr/cloud_file_util.hpp"
 #include "rtr/ops.hpp"
 
 #include "cgraph/edge_check.hpp"
@@ -116,9 +117,20 @@ int main() {
 
   cgraph::PortSpec file_out_port = rtr::cloud_port("cloud");
   cgraph::PortSpec buffer_only = rtr::cloud_buffer_port("cloud");
-  // Kind differs (Artifact vs Value) → KindMismatch before realisation.
+  // Same Kind (Value); File produce ⊈ buffer-only accepts → RealisationMismatch.
   RTR_CHECK(cgraph::check_port_edge(file_out_port, buffer_only) ==
-            cgraph::EdgeCompat::KindMismatch);
+            cgraph::EdgeCompat::RealisationMismatch);
+
+  // §9.3: cloud edge wins over frame.las_fn when both present.
+  Ddx::LidarFrame decoy = frame;
+  decoy.lasFn_ = (tmp / "missing_decoy.pcd").string();
+  std::map<std::string, cgraph::DataObject> both;
+  both.emplace("cloud", cloud_file.at("cloud"));
+  both.emplace("frame", rtr::lidar_frame_to_data(decoy));
+  RTR_CHECK(rtr::resolve_cloud_truth_source(both) == rtr::CloudTruthSource::Edge);
+  auto from_edge =
+      rtr::load_xyz_cloud_prefer_edge(both, "test_truth_source");
+  RTR_CHECK(from_edge && !from_edge->empty());
 
   std::map<std::string, Eigen::Matrix4d> table;
   Eigen::Matrix4d m = Eigen::Matrix4d::Identity();

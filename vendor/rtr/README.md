@@ -39,9 +39,11 @@ Then `find_package(real_time_registration CONFIG REQUIRED)`.
 | `rtr.registration_report` | `::registration_report` | Two clouds + matrix → typed `registration_report` |
 | `rtr.align_result.unpack` | (none) | Split AlignResult record fields |
 
-**Payload model:** Artifact-first for File clouds; Buffer uses Opaque + `rtr.codec.point_xyz_f32` (LE `uint64` count + `count×3` float32 XYZ). Algorithms that only accept File keep `cloud_port` (`accepts=[file]`). Do not silently promote Frame paths to Buffer.
+**Payload model:** Point-cloud graph ports use **Value** Kind for both File (DataRef) and Buffer (Opaque) so `accepts=[file,buffer]` works. `cloud_port` accepts both; load/downsample **produce** File. Buffer uses `rtr.codec.point_xyz_f32` (LE `uint64` count + `count×3` float32 XYZ). Prefer `load_xyz_cloud_prefer_edge` when Frame+cloud may coexist (§9.3).
 
 **Codec `rtr.codec.point_xyz_f32` layout:** little-endian; `uint64_t n`; then `n` triples of `float` (x,y,z). No pointers in Opaque.
+
+**Frames:** `LidarFrame.global_matrix` ↔ `rtr.semantic.world_from_station` (`frame_from=station`, `frame_to=world`); helper `world_from_station_matrix_port`.
 
 CMake: `-DCGRAPH_ADAPTERS_WITH_RTR=ON` (default). Plugin name: `cgraph_rtr.dll` / `cgraph_rtr.so`.
 Do **not** wrap `RealTimeRegistrationSession` / `RealTimeManager` here.

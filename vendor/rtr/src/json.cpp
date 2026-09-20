@@ -171,12 +171,13 @@ void register_rtr_types() {
 }
 
 cgraph::PortSpec cloud_port(std::string name) {
+  // Value Kind for both File (DataRef) and Buffer (Opaque) so dual-accept works.
   cgraph::PortSpec p = cgraph::make_port(
-      std::move(name), cgraph::PortKind::Artifact,
+      std::move(name), cgraph::PortKind::Value,
       cgraph::TypeId::parse("rtr.type.point_cloud"),
       cgraph::SemanticSpec::of("rtr.semantic.point_cloud"));
   p.produces_realisation = {"file"};
-  p.accepts_realisation = {"file"};
+  p.accepts_realisation = {"file", "buffer"};
   return p;
 }
 
@@ -202,6 +203,18 @@ cgraph::PortSpec matrix_port(std::string name, bool optional) {
       cgraph::make_port(std::move(name), cgraph::PortKind::Value,
                         cgraph::type_ids::matrix_r4c4_f64(),
                         rigid_transform_semantic());
+  p.optional = optional;
+  return p;
+}
+
+cgraph::PortSpec world_from_station_matrix_port(std::string name, bool optional) {
+  cgraph::SemanticSpec s =
+      cgraph::SemanticSpec::of("rtr.semantic.world_from_station");
+  s.frame_from = "station";
+  s.frame_to = "world";
+  cgraph::PortSpec p = cgraph::make_port(
+      std::move(name), cgraph::PortKind::Value, cgraph::type_ids::matrix_r4c4_f64(),
+      std::move(s));
   p.optional = optional;
   return p;
 }

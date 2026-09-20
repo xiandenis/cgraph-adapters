@@ -88,6 +88,42 @@ inline cgraph::DataObject point_cloud_buffer_from_xyz(
       cgraph::Realisation::Buffer);
 }
 
+/// §9.3: when both PointCloud edge and LidarFrame are present, the edge is
+/// the geometric truth source — never open frame.las_fn behind the edge's back.
+enum class CloudTruthSource { Edge, FramePath };
+
+inline CloudTruthSource resolve_cloud_truth_source(
+    const std::map<std::string, cgraph::DataObject>& inputs,
+    const char* cloud_key = "cloud", const char* frame_key = "frame") {
+  const bool has_cloud = inputs.count(cloud_key) != 0;
+  const bool has_frame = frame_key != nullptr && inputs.count(frame_key) != 0;
+  if (has_cloud) {
+    return CloudTruthSource::Edge;
+  }
+  if (has_frame) {
+    return CloudTruthSource::FramePath;
+  }
+  throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
+                              "resolve_cloud_truth_source: missing cloud/frame");
+}
+
+inline pcl::PointCloud<pcl::PointXYZ>::Ptr load_xyz_cloud_prefer_edge(
+    const std::map<std::string, cgraph::DataObject>& inputs, const char* op_id,
+    const char* cloud_key = "cloud", const char* frame_key = "frame") {
+  const CloudTruthSource src =
+      resolve_cloud_truth_source(inputs, cloud_key, frame_key);
+  if (src == CloudTruthSource::Edge) {
+    return load_xyz_cloud(inputs.at(cloud_key), op_id);
+  }
+  const Ddx::LidarFrame frame = lidar_frame_from_data(inputs.at(frame_key));
+  if (frame.lasFn_.empty()) {
+    throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
+                                std::string(op_id) + ": frame.las_fn empty");
+  }
+  cgraph::DataObject path_cloud = cloud_artifact_from_path(frame.lasFn_);
+  return load_xyz_cloud(path_cloud, op_id);
+}
+
 inline std::filesystem::path resolve_work_dir(const nlohmann::json& params,
                                               const std::filesystem::path& src,
                                               const char* default_suffix) {

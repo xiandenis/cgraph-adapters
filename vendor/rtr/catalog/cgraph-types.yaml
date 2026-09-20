@@ -44,6 +44,9 @@ semantics:
     applies_to: [rtr.type.voxel_root]
   - semantic_id: rtr.semantic.sub_voxel
     applies_to: [rtr.type.sub_voxel]
+  - semantic_id: rtr.semantic.world_from_station
+    applies_to: [cgraph.type.matrix.r4c4.f64]
+    require_frames: true
   - semantic_id: rtr.semantic.global_matrix_file
     applies_to: [rtr.type.global_matrix_file]
   - semantic_id: rtr.semantic.station_global_pose
@@ -145,7 +148,7 @@ types:
       - {name: altimeter, type_id: cgraph.type.float, semantic_id: cgraph.semantic.number, required: true}
       - {name: gps, type_id: "cgraph.type.list[cgraph.type.float]", semantic_id: cgraph.semantic.number, required: true}
       - {name: angle_resolution, type_id: cgraph.type.int, semantic_id: cgraph.semantic.count, required: true}
-      - {name: global_matrix, type_id: cgraph.type.matrix.r4c4.f64, semantic_id: cgraph.semantic.rigid_transform, required: true}
+      - {name: global_matrix, type_id: cgraph.type.matrix.r4c4.f64, semantic_id: rtr.semantic.world_from_station, required: true}
       - {name: state, type_id: cgraph.type.int, semantic_id: rtr.semantic.state, required: true}
       - {name: point_number, type_id: cgraph.type.int, semantic_id: rtr.semantic.point_count, required: true}
       - {name: scene_scale, type_id: cgraph.type.float, semantic_id: cgraph.semantic.number, required: true}

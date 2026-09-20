@@ -25,6 +25,8 @@ cgraph::SemanticSpec rigid_transform_semantic();
 cgraph::PortSpec cloud_port(std::string name);
 cgraph::PortSpec cloud_buffer_port(std::string name);
 cgraph::PortSpec lidar_frame_port(std::string name);
+/// Rigid transform port: frame_from=station → frame_to=world (LidarFrame.global_matrix_).
+cgraph::PortSpec world_from_station_matrix_port(std::string name, bool optional = false);
 cgraph::PortSpec matrix_port(std::string name, bool optional = false);
 cgraph::PortSpec align_port(std::string name);
 cgraph::PortSpec report_port(std::string name);
