@@ -11,6 +11,9 @@ void register_fine_registration(cgraph::OpRegistry& registry);
 void register_point_cloud_load(cgraph::OpRegistry& registry);
 void register_registration_initializer(cgraph::OpRegistry& registry);
 void register_registration_report(cgraph::OpRegistry& registry);
+void register_angle_downsample(cgraph::OpRegistry& registry);
+void register_voxel_medoid_downsample(cgraph::OpRegistry& registry);
+void register_resolution_estimate(cgraph::OpRegistry& registry);
 
 inline void register_rtr_ops(cgraph::OpRegistry& registry) {
   register_rtr_types();
@@ -20,6 +23,9 @@ inline void register_rtr_ops(cgraph::OpRegistry& registry) {
   register_point_cloud_load(registry);
   register_registration_initializer(registry);
   register_registration_report(registry);
+  register_angle_downsample(registry);
+  register_voxel_medoid_downsample(registry);
+  register_resolution_estimate(registry);
 }
 
 }  // namespace rtr

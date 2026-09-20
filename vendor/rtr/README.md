@@ -26,6 +26,9 @@ Then `find_package(real_time_registration CONFIG REQUIRED)`.
 | op_id | RTR leaf | Notes |
 |-------|----------|--------|
 | `rtr.point_cloud.load` | `::point_cloud_io` | Path → `rtr.type.point_cloud` **Artifact** (file ref; not in-graph memory) |
+| `rtr.angle_downsample` | `AngleDownsample` (via initializer lib) | Angular depth pick; writes sidecar PCD |
+| `rtr.voxel_medoid_downsample` | `::octree` `downsampleMedoid` | Hash-voxel true Medoid; writes sidecar PCD |
+| `rtr.resolution_estimate` | `::resolution_estimate` | Emits `voxel_size` float (no cloud write) |
 | `rtr.registration_initializer` | `::registration_initializer` | Writes Root/subvoxel under `work_dir`; emits processed Artifact + voxel_size |
 | `rtr.rough_global_reg` | `::rough_global_reg` | File Artifact in; typed `align_result` out |
 | `rtr.fine_registration` | `::fine_registration` | Optional 4×4 `guess`, default I |
