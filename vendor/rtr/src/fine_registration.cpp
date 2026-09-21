@@ -1,4 +1,4 @@
-#include "rtr/json.hpp"
+#include "rtr/cloud_file_util.hpp"
 #include "rtr/ops.hpp"
 
 #include <fine_registration/fine_registration.hpp>
@@ -72,6 +72,8 @@ class FineRegistrationOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.fine_registration: missing src or tgt");
     }
+    require_file_point_cloud(inputs.at("src"), "rtr.fine_registration");
+    require_file_point_cloud(inputs.at("tgt"), "rtr.fine_registration");
     const auto src = artifact_file_path(inputs.at("src"));
     const auto tgt = artifact_file_path(inputs.at("tgt"));
     if (!std::filesystem::is_regular_file(src) ||

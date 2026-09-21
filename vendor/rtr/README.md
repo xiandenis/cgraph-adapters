@@ -27,19 +27,21 @@ Then `find_package(real_time_registration CONFIG REQUIRED)`.
 |-------|----------|--------|
 | `rtr.point_cloud.load` | `::point_cloud_io` | Path → `rtr.type.point_cloud` **File** realisation (Artifact DataRef) |
 | `rtr.point_cloud.to_buffer` / `to_file` | `::point_cloud_io` + codec | Explicit File↔Buffer materialize (`rtr.codec.point_xyz_f32`) |
-| `rtr.angle_downsample` | `AngleDownsample` (via initializer lib) | Angular depth pick; writes sidecar PCD |
-| `rtr.voxel_medoid_downsample` | `::octree` `downsampleMedoid` | Hash-voxel true Medoid; writes sidecar PCD |
+| `rtr.point_cloud.save` | `::point_cloud_io` save* | User path + `format` (las\|pcd\|ply, default las); extension must match |
+| `rtr.point_cloud.convert` | `::point_cloud_io` | Format convert into `{workdir}/outputs/cloud.<ext>` |
+| `rtr.angle_downsample` | `AngleDownsample` (via initializer lib) | Angular depth pick; writes `{workdir}/outputs/cloud.pcd` |
+| `rtr.voxel_medoid_downsample` | `::octree` `downsampleMedoid` | Hash-voxel true Medoid; writes `{workdir}/outputs/cloud.pcd` |
 | `rtr.resolution_estimate` | `::resolution_estimate` | Emits `voxel_size` float (no cloud write) |
 | `rtr.align_result.save` / `load` | `::registration_type` AlignResultIO | Value ↔ JSON file Artifact |
 | `rtr.lidar_frame.save` / `load` | `::registration_type` LidarFrameIO | Isomorphic `rtr.type.lidar_frame` Value ↔ JSON (+ file Artifact) |
 | `rtr.global_matrix.save` / `load` | `::global_matrix_file` | Station→global 4×4 table ↔ JSON |
-| `rtr.registration_initializer` | `::registration_initializer` | Writes Root/subvoxel under `work_dir`; emits processed Artifact + voxel_size |
+| `rtr.registration_initializer` | `::registration_initializer` | Intermediate files under `ExecContext.workdir`; graph cloud is `outputs/cloud.pcd` |
 | `rtr.rough_global_reg` | `::rough_global_reg` | File Artifact in; typed `align_result` out |
 | `rtr.fine_registration` | `::fine_registration` | Optional 4×4 `guess`, default I |
 | `rtr.registration_report` | `::registration_report` | Two clouds + matrix → typed `registration_report` |
 | `rtr.align_result.unpack` | (none) | Split AlignResult record fields |
 
-**Payload model:** Point-cloud graph ports use **Value** Kind for both File (DataRef) and Buffer (Opaque) so `accepts=[file,buffer]` works. `cloud_port` accepts both; load/downsample **produce** File. Buffer uses `rtr.codec.point_xyz_f32` (LE `uint64` count + `count×3` float32 XYZ). Prefer `load_xyz_cloud_prefer_edge` when Frame+cloud may coexist (§9.3).
+**Payload model:** Algorithm `cloud_port` is **file only** (`accepts`/`produces` = `file`). Intermediate PCD lives in the graph cache slot `ExecContext.workdir/outputs/<port>.pcd` — operators must not take a user `work_dir`. User export is `rtr.point_cloud.save` (`format` + matching extension). In-workspace reformat is `rtr.point_cloud.convert`. `to_buffer` / `to_file` remain for the unfinished buffer contract and do not connect to algorithm ports. Buffer codec is `rtr.codec.point_xyz_f32` (LE `uint64` count + `count×3` float32 XYZ). Prefer `load_xyz_cloud_prefer_edge` when Frame+cloud may coexist (§9.3).
 
 **Codec `rtr.codec.point_xyz_f32` layout:** little-endian; `uint64_t n`; then `n` triples of `float` (x,y,z). No pointers in Opaque.
 

@@ -18,6 +18,8 @@ void register_align_result_io(cgraph::OpRegistry& registry);
 void register_lidar_frame_io(cgraph::OpRegistry& registry);
 void register_global_matrix_io(cgraph::OpRegistry& registry);
 void register_point_cloud_materialize(cgraph::OpRegistry& registry);
+void register_point_cloud_save(cgraph::OpRegistry& registry);
+void register_point_cloud_convert(cgraph::OpRegistry& registry);
 
 inline void register_rtr_ops(cgraph::OpRegistry& registry) {
   register_rtr_types();
@@ -34,6 +36,8 @@ inline void register_rtr_ops(cgraph::OpRegistry& registry) {
   register_lidar_frame_io(registry);
   register_global_matrix_io(registry);
   register_point_cloud_materialize(registry);
+  register_point_cloud_save(registry);
+  register_point_cloud_convert(registry);
 }
 
 }  // namespace rtr

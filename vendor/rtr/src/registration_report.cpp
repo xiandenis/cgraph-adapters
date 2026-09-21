@@ -1,4 +1,4 @@
-#include "rtr/json.hpp"
+#include "rtr/cloud_file_util.hpp"
 #include "rtr/ops.hpp"
 
 #include <point_cloud_io/point_cloud_io.hpp>
@@ -82,6 +82,8 @@ class RegistrationReportOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.registration_report: missing src/tgt/matrix");
     }
+    require_file_point_cloud(inputs.at("src"), "rtr.registration_report");
+    require_file_point_cloud(inputs.at("tgt"), "rtr.registration_report");
     const auto src = artifact_file_path(inputs.at("src"));
     const auto tgt = artifact_file_path(inputs.at("tgt"));
     if (!std::filesystem::is_regular_file(src) ||

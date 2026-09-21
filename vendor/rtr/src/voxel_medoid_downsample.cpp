@@ -27,11 +27,6 @@ class VoxelMedoidDownsampleOp final : public cgraph::MemoryOperator {
     mt.dtype = "bool";
     mt.default_value = true;
     signature_.params["multi_thread"] = mt;
-    cgraph::ParamSpec work;
-    work.name = "work_dir";
-    work.dtype = "string";
-    work.default_value = "";
-    signature_.params["work_dir"] = work;
     capability_.summary =
         "Hash-voxel true Medoid downsample (RTR octree::downsampleMedoid)";
     cost_.cost_class = "cpu.medium";
@@ -39,17 +34,17 @@ class VoxelMedoidDownsampleOp final : public cgraph::MemoryOperator {
     effect_.cache = cgraph::CachePolicy::Volatile;
     usage_.principle =
         "原点对齐体素格上取真 Medoid（距格心最近的原始点）做下采样。"
-        "输入/输出为点云文件 Artifact；结果写旁路 PCD。";
+        "输入/输出为点云文件；结果写入图工作区 outputs/cloud.pcd，路径不可由用户指定。";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json& params,
-      const cgraph::ExecContext&) const override {
+      const cgraph::ExecContext& ctx) const override {
     if (!inputs.count("cloud")) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.voxel_medoid_downsample: missing cloud");
     }
-    const auto src_path = artifact_file_path(inputs.at("cloud"));
+    require_file_point_cloud(inputs.at("cloud"), "rtr.voxel_medoid_downsample");
     auto cloud = load_xyz_cloud(inputs.at("cloud"), "rtr.voxel_medoid_downsample");
     const float voxel_size = param_float(params, "voxel_size", 0.05f);
     const bool multi_thread = param_bool(params, "multi_thread", true);
@@ -58,8 +53,7 @@ class VoxelMedoidDownsampleOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.voxel_medoid_downsample: downsample failed");
     }
-    const auto work = resolve_work_dir(params, src_path, ".cgraph_rtr_medoid_");
-    const auto out_path = work / (src_path.stem().string() + "_medoid_ds.pcd");
+    const auto out_path = workspace_pcd_path(ctx, "cloud");
     return {{"cloud", save_xyz_cloud_artifact(*out, out_path, "rtr.voxel_medoid_downsample")},
             {"point_number",
              point_number_object(static_cast<std::int64_t>(out->size()))}};

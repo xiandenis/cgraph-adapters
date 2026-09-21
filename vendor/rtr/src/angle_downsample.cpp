@@ -28,29 +28,23 @@ class AngleDownsampleOp final : public cgraph::MemoryOperator {
     h.default_value = 2500;
     h.doc = "Panorama height (angular bins)";
     signature_.params["height"] = h;
-    cgraph::ParamSpec work;
-    work.name = "work_dir";
-    work.dtype = "string";
-    work.default_value = "";
-    work.doc = "Directory for output PCD; default beside input";
-    signature_.params["work_dir"] = work;
     capability_.summary = "Angle-depth downsample (RTR AngleDownsample); file Artifact I/O";
     cost_.cost_class = "cpu.medium";
     effect_.effect = cgraph::EffectClass::External;
     effect_.cache = cgraph::CachePolicy::Volatile;
     usage_.principle =
         "按测站球面角度栅格做深度挑选下采样（角度深度下采样），保留每角格最近点。"
-        "输入/输出均为点云文件 Artifact，结果写旁路 PCD。";
+        "输入/输出均为点云文件；结果写入图工作区 outputs/cloud.pcd，路径不可由用户指定。";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json& params,
-      const cgraph::ExecContext&) const override {
+      const cgraph::ExecContext& ctx) const override {
     if (!inputs.count("cloud")) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.angle_downsample: missing cloud");
     }
-    const auto src_path = artifact_file_path(inputs.at("cloud"));
+    require_file_point_cloud(inputs.at("cloud"), "rtr.angle_downsample");
     auto cloud = load_xyz_cloud(inputs.at("cloud"), "rtr.angle_downsample");
     Ddx::pcl_type::PointCloudPtr out;
     const int width = param_int(params, "width", 5000);
@@ -60,8 +54,7 @@ class AngleDownsampleOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.angle_downsample: downsampling failed");
     }
-    const auto work = resolve_work_dir(params, src_path, ".cgraph_rtr_angle_");
-    const auto out_path = work / (src_path.stem().string() + "_angle_ds.pcd");
+    const auto out_path = workspace_pcd_path(ctx, "cloud");
     return {{"cloud", save_xyz_cloud_artifact(*out, out_path, "rtr.angle_downsample")},
             {"point_number", point_number_object(static_cast<std::int64_t>(out->size()))}};
   }

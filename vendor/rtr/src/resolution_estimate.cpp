@@ -21,7 +21,7 @@ class ResolutionEstimateOp final : public cgraph::MemoryOperator {
     effect_.cache = cgraph::CachePolicy::Volatile;
     usage_.principle =
         "从点云文件估计配准用体素尺度（分辨率估计），输出 float voxel_size。"
-        "不写点云；后续可接到 Medoid 下采样的 voxel_size 参数（需手填或未来常量口）。";
+        "只读 File realisation，不接受内存 Buffer，不写点云。";
   }
 
   std::map<std::string, cgraph::DataObject> execute(
@@ -31,6 +31,7 @@ class ResolutionEstimateOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.resolution_estimate: missing cloud");
     }
+    require_file_point_cloud(inputs.at("cloud"), "rtr.resolution_estimate");
     auto cloud = load_xyz_cloud(inputs.at("cloud"), "rtr.resolution_estimate");
     const float vs = Ddx::ResolutionEstimate::estimate(cloud, "cgraph");
     if (!(vs > 0.f) || !std::isfinite(vs)) {

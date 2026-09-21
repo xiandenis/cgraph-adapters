@@ -1,4 +1,4 @@
-#include "rtr/json.hpp"
+#include "rtr/cloud_file_util.hpp"
 #include "rtr/ops.hpp"
 
 #include <registration_initializer/registration_initializer.hpp>
@@ -27,13 +27,6 @@ int param_int(const nlohmann::json& params, const char* key, int def) {
   return def;
 }
 
-std::string param_string(const nlohmann::json& params, const char* key) {
-  if (params.is_object() && params.contains(key) && params[key].is_string()) {
-    return params[key].get<std::string>();
-  }
-  return {};
-}
-
 class RegistrationInitializerOp final : public cgraph::MemoryOperator {
  public:
   RegistrationInitializerOp() {
@@ -54,12 +47,6 @@ class RegistrationInitializerOp final : public cgraph::MemoryOperator {
     res.default_value = 10;
     res.doc = "Sub-voxel resolution hint for initalState";
     signature_.params["resolution"] = res;
-    cgraph::ParamSpec work;
-    work.name = "work_dir";
-    work.dtype = "string";
-    work.default_value = "";
-    work.doc = "Info folder for Root/subvoxel PCD; default beside input";
-    signature_.params["work_dir"] = work;
     capability_.summary =
         "Station preprocess (RTR RegistrationInitializer); emits file Artifact";
     cost_.cost_class = "cpu.heavy";
@@ -67,35 +54,36 @@ class RegistrationInitializerOp final : public cgraph::MemoryOperator {
     effect_.cache = cgraph::CachePolicy::Volatile;
     usage_.principle =
         "对输入点云文件做测站初始化（角度深度 Root 筛选、体素/法向旁路写出）。"
-        "输出仍是文件 Artifact（Root_p.pcd 或原路径），不把 LidarFrame 抬进图。";
-    usage_.notes = {"work_dir 下会写出中间 PCD", "不链接 RealTimeManager"};
+        "中间文件与输出点云都落在图工作区，不把 LidarFrame 抬进图。";
+    usage_.notes = {"中间 PCD 在 ExecContext.workdir", "不链接 RealTimeManager"};
   }
 
   std::map<std::string, cgraph::DataObject> execute(
       const std::map<std::string, cgraph::DataObject>& inputs, const nlohmann::json& params,
-      const cgraph::ExecContext&) const override {
+      const cgraph::ExecContext& ctx) const override {
     if (!inputs.count("cloud")) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.registration_initializer: missing cloud");
     }
+    require_file_point_cloud(inputs.at("cloud"), "rtr.registration_initializer");
     const auto src = artifact_file_path(inputs.at("cloud"));
     if (!std::filesystem::is_regular_file(src)) {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.registration_initializer: cloud file missing");
     }
+    if (ctx.workdir.empty()) {
+      throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
+                                  "rtr.registration_initializer: workdir required");
+    }
 
     const bool use_root = param_bool(params, "use_root", true);
     const int resolution = param_int(params, "resolution", 10);
-    std::string work = param_string(params, "work_dir");
-    if (work.empty()) {
-      work = (src.parent_path() / (".cgraph_rtr_init_" + src.stem().string())).string();
-    }
-    std::filesystem::create_directories(work);
+    std::filesystem::create_directories(ctx.workdir);
 
     Ddx::LidarFrame frame;
     frame.name_ = src.stem().string();
     frame.lasFn_ = src.string();
-    frame.info_folder_ = work;
+    frame.info_folder_ = ctx.workdir.string();
 
     Ddx::RegistrationInitializer init;
     init.setUseRoot(use_root);
@@ -112,17 +100,26 @@ class RegistrationInitializerOp final : public cgraph::MemoryOperator {
                                   "rtr.registration_initializer: check failed");
     }
 
-    const std::filesystem::path out_cloud = frame.root_.cloud_path_.empty()
-                                                ? src
-                                                : std::filesystem::path(frame.root_.cloud_path_);
-    if (!std::filesystem::is_regular_file(out_cloud)) {
+    const std::filesystem::path produced = frame.root_.cloud_path_.empty()
+                                               ? src
+                                               : std::filesystem::path(frame.root_.cloud_path_);
+    if (!std::filesystem::is_regular_file(produced)) {
       throw cgraph::OperatorError(
           cgraph::ErrorCode::OpFailed,
           "rtr.registration_initializer: output cloud path missing");
     }
+    const auto canonical = workspace_pcd_path(ctx, "cloud");
+    std::error_code ec;
+    const bool same =
+        std::filesystem::exists(canonical) && std::filesystem::equivalent(produced, canonical, ec);
+    if (!same) {
+      std::filesystem::create_directories(canonical.parent_path());
+      std::filesystem::copy_file(produced, canonical,
+                                 std::filesystem::copy_options::overwrite_existing);
+    }
 
     return {
-        {"cloud", cloud_artifact_from_path(out_cloud)},
+        {"cloud", cloud_artifact_from_path(canonical)},
         {"voxel_size",
          cgraph::make_data_object(cgraph::type_ids::floating(),
                                   cgraph::SemanticSpec::of("rtr.semantic.voxel_size"),

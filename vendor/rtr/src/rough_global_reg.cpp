@@ -1,4 +1,4 @@
-#include "rtr/json.hpp"
+#include "rtr/cloud_file_util.hpp"
 #include "rtr/ops.hpp"
 
 #include <rough_global_reg/rough_global_reg.hpp>
@@ -75,6 +75,8 @@ class RoughGlobalRegOp final : public cgraph::MemoryOperator {
       throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
                                   "rtr.rough_global_reg: missing src or tgt");
     }
+    require_file_point_cloud(inputs.at("src"), "rtr.rough_global_reg");
+    require_file_point_cloud(inputs.at("tgt"), "rtr.rough_global_reg");
     const auto src = artifact_file_path(inputs.at("src"));
     const auto tgt = artifact_file_path(inputs.at("tgt"));
     if (!std::filesystem::is_regular_file(src) ||

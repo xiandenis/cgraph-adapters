@@ -17,11 +17,127 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace rtr {
 
 inline constexpr const char* kPointXyzF32Codec = "rtr.codec.point_xyz_f32";
+
+inline void require_file_point_cloud(const cgraph::DataObject& cloud_obj,
+                                      const char* op_id) {
+  if (cloud_obj.realisation &&
+      *cloud_obj.realisation == cgraph::Realisation::Buffer) {
+    throw cgraph::OperatorError(
+        cgraph::ErrorCode::OpFailed,
+        std::string(op_id) + ": point cloud must be file realisation");
+  }
+}
+
+/// `{workdir}/outputs/{port}.pcd`. Throws if workdir is empty.
+inline std::filesystem::path workspace_pcd_path(const cgraph::ExecContext& ctx,
+                                                std::string_view port) {
+  auto path = ctx.output_path(port);
+  path += ".pcd";
+  return path;
+}
+
+enum class CloudFileFormat { Las, Pcd, Ply };
+
+inline std::string lowercase_ascii(std::string s) {
+  for (char& c : s) {
+    if (c >= 'A' && c <= 'Z') {
+      c = static_cast<char>(c - 'A' + 'a');
+    }
+  }
+  return s;
+}
+
+inline const char* cloud_format_ext(CloudFileFormat fmt) {
+  switch (fmt) {
+    case CloudFileFormat::Las:
+      return ".las";
+    case CloudFileFormat::Pcd:
+      return ".pcd";
+    case CloudFileFormat::Ply:
+      return ".ply";
+  }
+  return ".las";
+}
+
+inline CloudFileFormat parse_cloud_format(const nlohmann::json& params, const char* op_id,
+                                         const char* key = "format",
+                                         const char* default_fmt = "las") {
+  std::string raw = default_fmt;
+  if (params.is_object() && params.contains(key)) {
+    if (!params[key].is_string()) {
+      throw cgraph::OperatorError(
+          cgraph::ErrorCode::OpFailed,
+          std::string(op_id) + ": format must be a string (las|pcd|ply)");
+    }
+    raw = params[key].get<std::string>();
+  }
+  const std::string v = lowercase_ascii(std::move(raw));
+  if (v == "las") {
+    return CloudFileFormat::Las;
+  }
+  if (v == "pcd") {
+    return CloudFileFormat::Pcd;
+  }
+  if (v == "ply") {
+    return CloudFileFormat::Ply;
+  }
+  throw cgraph::OperatorError(
+      cgraph::ErrorCode::OpFailed,
+      std::string(op_id) + ": unsupported format '" + v +
+          "'; allowed: las, pcd, ply");
+}
+
+inline void require_path_matches_format(const std::filesystem::path& path,
+                                        CloudFileFormat fmt, const char* op_id) {
+  const std::string ext = lowercase_ascii(path.extension().string());
+  const std::string need = cloud_format_ext(fmt);
+  if (ext != need) {
+    throw cgraph::OperatorError(
+        cgraph::ErrorCode::OpFailed,
+        std::string(op_id) + ": path extension '" + ext + "' does not match format '" +
+            need.substr(1) + "' (path must end with " + need + ")");
+  }
+}
+
+inline std::filesystem::path workspace_cloud_path(const cgraph::ExecContext& ctx,
+                                                  std::string_view port,
+                                                  CloudFileFormat fmt) {
+  auto path = ctx.output_path(port);
+  path += cloud_format_ext(fmt);
+  return path;
+}
+
+inline cgraph::ParamSpec cloud_format_param() {
+  cgraph::ParamSpec p;
+  p.name = "format";
+  p.dtype = "string";
+  p.default_value = "las";
+  p.doc = "Output format: las | pcd | ply";
+  p.bindable = false;
+  return p;
+}
+
+inline cgraph::DataObject save_xyz_cloud_format(
+    const pcl::PointCloud<pcl::PointXYZ>& cloud, const std::filesystem::path& out_path,
+    const char* op_id) {
+  if (cloud.empty()) {
+    throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
+                                std::string(op_id) + ": refusing empty cloud");
+  }
+  std::filesystem::create_directories(out_path.parent_path());
+  if (Ddx::point_cloud_io::save(out_path.string(), cloud) != 0) {
+    throw cgraph::OperatorError(cgraph::ErrorCode::OpFailed,
+                                std::string(op_id) + ": failed to write " +
+                                    out_path.string());
+  }
+  return cloud_artifact_from_path(out_path);
+}
 
 inline pcl::PointCloud<pcl::PointXYZ>::Ptr load_xyz_cloud(
     const cgraph::DataObject& cloud_obj, const char* op_id) {
@@ -122,20 +238,6 @@ inline pcl::PointCloud<pcl::PointXYZ>::Ptr load_xyz_cloud_prefer_edge(
   }
   cgraph::DataObject path_cloud = cloud_artifact_from_path(frame.lasFn_);
   return load_xyz_cloud(path_cloud, op_id);
-}
-
-inline std::filesystem::path resolve_work_dir(const nlohmann::json& params,
-                                              const std::filesystem::path& src,
-                                              const char* default_suffix) {
-  std::string work;
-  if (params.is_object() && params.contains("work_dir") && params["work_dir"].is_string()) {
-    work = params["work_dir"].get<std::string>();
-  }
-  if (work.empty()) {
-    work = (src.parent_path() / (std::string(default_suffix) + src.stem().string())).string();
-  }
-  std::filesystem::create_directories(work);
-  return work;
 }
 
 inline cgraph::DataObject save_xyz_cloud_artifact(

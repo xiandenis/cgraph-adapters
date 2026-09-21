@@ -176,8 +176,9 @@ cgraph::PortSpec cloud_port(std::string name) {
       std::move(name), cgraph::PortKind::Value,
       cgraph::TypeId::parse("rtr.type.point_cloud"),
       cgraph::SemanticSpec::of("rtr.semantic.point_cloud"));
+  // Algorithm ports are file-only until the in-memory point-cloud contract exists.
   p.produces_realisation = {"file"};
-  p.accepts_realisation = {"file", "buffer"};
+  p.accepts_realisation = {"file"};
   return p;
 }
 

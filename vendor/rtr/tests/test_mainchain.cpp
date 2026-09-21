@@ -83,15 +83,17 @@ int main() {
   const auto loaded_init =
       load->execute({{"path", path_obj(init_p)}}, nlohmann::json::object(), ctx);
   const auto* init = reg.get("rtr.registration_initializer");
+  cgraph::ExecContext init_ctx;
+  init_ctx.workdir = tmp / "ws_init";
   const auto init_out = init->execute(
       {{"cloud", loaded_init.at("cloud")}},
-      nlohmann::json{{"use_root", false},
-                     {"resolution", 10},
-                     {"work_dir", (tmp / "info_src").string()}},
-      ctx);
+      nlohmann::json{{"use_root", false}, {"resolution", 10}}, init_ctx);
   RTR_CHECK(init_out.count("cloud"));
   RTR_CHECK(init_out.at("voxel_size").payload.as_float() > 0.0);
   RTR_CHECK(init_out.at("point_number").payload.as_int() >= 10);
+  RTR_CHECK(std::filesystem::weakly_canonical(
+                rtr::artifact_file_path(init_out.at("cloud"))) ==
+            std::filesystem::weakly_canonical(init_ctx.workdir / "outputs" / "cloud.pcd"));
 
   const auto* rough = reg.get("rtr.rough_global_reg");
   const auto rough_out = rough->execute(

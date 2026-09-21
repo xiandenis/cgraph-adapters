@@ -165,6 +165,8 @@ if(CGRAPH_ADAPTERS_WITH_RTR)
     vendor/rtr/src/lidar_frame_io.cpp
     vendor/rtr/src/global_matrix_io.cpp
     vendor/rtr/src/point_cloud_materialize.cpp
+    vendor/rtr/src/point_cloud_save.cpp
+    vendor/rtr/src/point_cloud_convert.cpp
   )
   target_include_directories(cgraph_rtr_ops PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/vendor/rtr/include>
